@@ -1,0 +1,8 @@
+# Root-level installs (use bioechem-portal-web/ instead)
+node_modules/
+
+# Env secrets
+.env*
+
+# OS
+.DS_Store
