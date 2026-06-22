@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { SiteHeader } from "@/components/brand/site-header";
 import { SignOutButton } from "@/components/brand/sign-out-button";
 import { requirePendingApprovalSession } from "@/lib/auth/session";
 
@@ -12,6 +13,8 @@ export default async function PendingApprovalPage() {
   const isAdminSignup = profile.role === "bioechem_admin";
 
   return (
+    <>
+    <SiteHeader />
     <main className="bio-pattern flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg rounded-xl border border-card-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
         <h1 className="text-2xl font-semibold text-bio-green">
@@ -64,5 +67,6 @@ export default async function PendingApprovalPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

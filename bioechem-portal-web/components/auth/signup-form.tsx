@@ -146,10 +146,11 @@ export function SignupForm() {
     }
 
     const email = String(formData.get("email")).trim();
-    const fullName = String(formData.get("fullName")).trim();
+    const firstName = String(formData.get("firstName")).trim();
+    const lastName = String(formData.get("lastName")).trim();
 
-    if (!fullName) {
-      setError("Full name is required.");
+    if (!firstName || !lastName) {
+      setError("First name and last name are required.");
       setPending(false);
       return;
     }
@@ -172,7 +173,8 @@ export function SignupForm() {
         body: JSON.stringify({
           email,
           password,
-          fullName,
+          firstName,
+          lastName,
           role: selectedRole,
           schoolId:
             roleRequiresPartnerSchool(selectedRole) && !usingOtherSchool
@@ -221,18 +223,34 @@ export function SignupForm() {
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-      <div>
-        <label htmlFor="signup-full-name" className={authLabelClassName}>
-          Full name
-        </label>
-        <input
-          id="signup-full-name"
-          name="fullName"
-          type="text"
-          autoComplete="name"
-          disabled={pending}
-          className={authInputClassName}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="signup-first-name" className={authLabelClassName}>
+            First name
+          </label>
+          <input
+            id="signup-first-name"
+            name="firstName"
+            type="text"
+            autoComplete="given-name"
+            disabled={pending}
+            className={authInputClassName}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="signup-last-name" className={authLabelClassName}>
+            Last name
+          </label>
+          <input
+            id="signup-last-name"
+            name="lastName"
+            type="text"
+            autoComplete="family-name"
+            disabled={pending}
+            className={authInputClassName}
+          />
+        </div>
       </div>
 
       <div>

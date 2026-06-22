@@ -14,15 +14,22 @@ export default function LoginPage() {
     <AuthCard
       title="Log in"
       footer={
-        <>
-          Don&apos;t have an account?{" "}
-          <Link
-            href={AUTH_ROUTES.signup}
-            className="font-medium text-bio-green hover:underline"
-          >
-            Create account
-          </Link>
-        </>
+        <div className="space-y-2">
+          <p>
+            Don&apos;t have an account?{" "}
+            <Link href={AUTH_ROUTES.signup} className="font-medium text-bio-green hover:underline">
+              Create account
+            </Link>
+          </p>
+          <p>
+            <Link
+              href={AUTH_ROUTES.forgotPassword}
+              className="font-medium text-bio-green hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </p>
+        </div>
       }
     >
       <LoginForm />

@@ -28,7 +28,8 @@ export type SignupRole =
 export type SignupRequestBody = {
   email: string;
   password: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   role: SignupRole;
   schoolId?: string | null;
   otherSchoolName?: string | null;
@@ -41,23 +42,42 @@ export type SignupSuccessResponse = {
   redirectTo: string;
 };
 
-export type SignupSchoolOption = {
-  id: string;
-  name: string;
-};
+import type { CohortOption, SchoolOption } from "@/lib/schools/types";
 
-export type SignupCohortOption = {
-  id: string;
-  schoolId: string;
-  name: string;
-};
+export type SignupSchoolOption = SchoolOption;
+export type SignupCohortOption = CohortOption;
 
 export type SignupSchoolsResponse = {
-  schools: SignupSchoolOption[];
-  cohorts: SignupCohortOption[];
+  schools: SchoolOption[];
+  cohorts: CohortOption[];
 };
 
 export type LogoutSuccessResponse = {
   ok: true;
   redirectTo: string;
+};
+
+export type PasswordChangeRequestBody = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type PasswordChangeSuccessResponse = {
+  ok: true;
+};
+
+export type ForgotPasswordRequestBody = {
+  email: string;
+};
+
+export type ForgotPasswordSuccessResponse = {
+  ok: true;
+};
+
+export type ResetPasswordRequestBody = {
+  password: string;
+};
+
+export type ResetPasswordSuccessResponse = {
+  ok: true;
 };

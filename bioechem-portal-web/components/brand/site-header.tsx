@@ -5,7 +5,7 @@ import { AuthHeaderLinks } from "@/components/brand/auth-header-links";
 import { headerAuthInactive } from "@/components/brand/header-auth-styles";
 import { SignOutButton } from "@/components/brand/sign-out-button";
 import { AUTH_ROUTES } from "@/lib/auth/routes";
-import { MAIN_SITE_NAV, PORTAL_NAV } from "@/lib/brand/site";
+import { MAIN_SITE_URL } from "@/lib/brand/site";
 import { createClient } from "@/lib/supabase/server";
 
 export async function SiteHeader() {
@@ -23,18 +23,12 @@ export async function SiteHeader() {
     : { data: null };
 
   const homeHref =
-    profile?.approval_status === "approved" && profile.role === "bioechem_admin"
-      ? AUTH_ROUTES.adminApprovals
-      : profile?.approval_status === "approved" && profile.role === "school_admin"
-        ? AUTH_ROUTES.schoolHub
-        : AUTH_ROUTES.dashboard;
+    profile?.approval_status === "approved"
+      ? AUTH_ROUTES.dashboard
+      : AUTH_ROUTES.home;
 
   const homeNavLabel =
-    profile?.approval_status === "approved" && profile.role === "bioechem_admin"
-      ? "Admin"
-      : profile?.approval_status === "approved" && profile.role === "school_admin"
-        ? "School"
-        : "Dashboard";
+    profile?.approval_status === "approved" ? "Dashboard" : "Home";
 
   return (
     <header className="sticky top-0 z-50 border-b border-card-border bg-card shadow-sm">
@@ -55,31 +49,26 @@ export async function SiteHeader() {
         </Link>
 
         <nav
-          className="hidden items-center gap-6 text-sm font-medium text-bio-text lg:flex"
-          aria-label="Portal and BioEchem website"
+          className="hidden items-center gap-6 text-sm font-medium text-bio-text-muted lg:flex"
+          aria-label="Page sections"
         >
-          {PORTAL_NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="transition-colors hover:text-bio-green"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <Link href="/" className="transition-colors hover:text-bio-green">Home</Link>
+          <a
+            href={MAIN_SITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-bio-green"
+          >
+            BioEchem.com
+          </a>
           <span className="h-4 w-px bg-card-border" aria-hidden />
-          {MAIN_SITE_NAV.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="transition-colors hover:text-bio-green"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {item.label}
-              <span className="sr-only"> (opens bioechem.com)</span>
-            </a>
-          ))}
+          <a href="/#events" className="transition-colors hover:text-bio-green">Events</a>
+          <a href="/#past-events" className="transition-colors hover:text-bio-green">Past Events</a>
+          <a href="/#newsletter" className="transition-colors hover:text-bio-green">Newsletter</a>
+          <a href="/#about" className="transition-colors hover:text-bio-green">About</a>
+          {!user ? (
+            <a href="/#join" className="transition-colors hover:text-bio-green">Join</a>
+          ) : null}
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">

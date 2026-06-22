@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/roles";
 import type { SignupRole } from "@/lib/auth/types";
 import { isEmailAlreadyRegistered } from "@/lib/auth/check-email";
+import { buildFullName } from "@/lib/profile/name";
 import { createClient } from "@/lib/supabase/server";
 
 export type SignUpResult =
@@ -13,7 +14,8 @@ export type SignUpResult =
 export type SignUpInput = {
   email: string;
   password: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   role: SignupRole;
   schoolId?: string | null;
   otherSchoolName?: string | null;
@@ -24,6 +26,8 @@ export type SignUpInput = {
 type ValidatedSignUpInput = {
   email: string;
   password: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   role: SignupRole;
   schoolId: string | null;
@@ -44,13 +48,14 @@ function signUpFailure(message: string, code?: "email_exists"): SignUpResult {
 /** Validates and normalizes signup input — single source of truth for rules. */
 export function validateSignUpInput(input: SignUpInput): SignUpResult | ValidatedSignUpInput {
   const email = input.email.trim();
-  const fullName = input.fullName.trim();
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
   const schoolId = input.schoolId?.trim() || null;
   const otherSchoolName = input.otherSchoolName?.trim() || null;
   const cohortId = input.cohortId?.trim() || null;
 
-  if (!email || !input.password || !fullName) {
-    return signUpFailure("Email, password, and full name are required.");
+  if (!email || !input.password || !firstName || !lastName) {
+    return signUpFailure("Email, password, first name, and last name are required.");
   }
 
   if (input.password.length < MIN_PASSWORD_LENGTH) {
@@ -74,7 +79,9 @@ export function validateSignUpInput(input: SignUpInput): SignUpResult | Validate
   return {
     email,
     password: input.password,
-    fullName,
+    firstName,
+    lastName,
+    fullName: buildFullName(firstName, null, lastName),
     role: input.role,
     schoolId,
     otherSchoolName,
@@ -113,6 +120,8 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     password: validated.password,
     options: {
       data: {
+        first_name: validated.firstName,
+        last_name: validated.lastName,
         full_name: validated.fullName,
         role: validated.role,
         school_id: includeSchool && validated.schoolId ? validated.schoolId : "",
@@ -136,7 +145,6 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     return signUpFailure(error.message);
   }
 
-  // Confirm-email mode: duplicate signups return a user with no identities.
   if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
     await supabase.auth.signOut();
     return signUpFailure(EMAIL_EXISTS_MESSAGE, "email_exists");

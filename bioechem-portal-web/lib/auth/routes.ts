@@ -1,14 +1,17 @@
-/** Portal route paths — use these instead of hardcoded strings. */
+/** Auth and onboarding route paths. */
 
 export const AUTH_ROUTES = {
   home: "/",
   login: "/auth/login",
   signup: "/auth/signup",
+  forgotPassword: "/auth/forgot-password",
+  resetPassword: "/auth/reset-password",
   dashboard: "/dashboard",
-  schoolHub: "/school",
   pendingApproval: "/pending-approval",
+  completeProfile: "/complete-profile",
   accessDenied: "/access-denied",
   adminApprovals: "/admin/approvals",
+  adminSchools: "/admin/schools",
+  adminCohorts: "/admin/cohorts",
+  adminContent: "/admin/content",
 } as const;
-
-export type AuthRoute = (typeof AUTH_ROUTES)[keyof typeof AUTH_ROUTES];

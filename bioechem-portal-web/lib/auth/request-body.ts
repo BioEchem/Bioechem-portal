@@ -1,5 +1,10 @@
 import { isSignupRole } from "@/lib/auth/roles";
-import type { LoginRequestBody, SignupRequestBody, SignupRole } from "@/lib/auth/types";
+import type {
+  LoginRequestBody,
+  PasswordChangeRequestBody,
+  SignupRequestBody,
+  SignupRole,
+} from "@/lib/auth/types";
 
 export function parseLoginBody(body: unknown): LoginRequestBody | null {
   if (!body || typeof body !== "object") return null;
@@ -13,8 +18,10 @@ export function parseSignupBody(body: unknown): SignupRequestBody | null {
   const record = body as Record<string, unknown>;
   const email = typeof record.email === "string" ? record.email.trim() : "";
   const password = typeof record.password === "string" ? record.password : "";
-  const fullName =
-    typeof record.fullName === "string" ? record.fullName.trim() : "";
+  const firstName =
+    typeof record.firstName === "string" ? record.firstName.trim() : "";
+  const lastName =
+    typeof record.lastName === "string" ? record.lastName.trim() : "";
   const role = record.role;
   const schoolId =
     typeof record.schoolId === "string" ? record.schoolId.trim() : "";
@@ -40,11 +47,25 @@ export function parseSignupBody(body: unknown): SignupRequestBody | null {
   return {
     email,
     password,
-    fullName,
+    firstName,
+    lastName,
     role: role as SignupRole,
     schoolId: schoolId || null,
     otherSchoolName: otherSchoolName || null,
     cohortId,
     age: Number.isNaN(age) ? null : age,
   };
+}
+
+export function parsePasswordChangeBody(body: unknown): PasswordChangeRequestBody | null {
+  if (!body || typeof body !== "object") return null;
+
+  const record = body as Record<string, unknown>;
+  const currentPassword =
+    typeof record.currentPassword === "string" ? record.currentPassword : "";
+  const newPassword = typeof record.newPassword === "string" ? record.newPassword : "";
+
+  if (!currentPassword || !newPassword) return null;
+
+  return { currentPassword, newPassword };
 }

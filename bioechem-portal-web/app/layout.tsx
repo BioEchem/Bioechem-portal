@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 
-import { SiteFooter } from "@/components/brand/site-footer";
-import { SiteHeader } from "@/components/brand/site-header";
-
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,11 +17,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="scroll-smooth">
       <body className="flex min-h-screen flex-col antialiased">
-        <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>
-        <SiteFooter />
       </body>
     </html>
   );

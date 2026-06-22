@@ -8,25 +8,6 @@ export const MAIN_SITE_CONTACT = {
   email: "team@bioechem.com",
 } as const;
 
-/** In-app portal navigation (same site). */
-export const PORTAL_NAV = [
-  { label: "Home", href: "/" },
-] as const;
-
-/** Links to the public marketing site (bioechem.com). */
-export const MAIN_SITE_NAV = [
-  {
-    label: "Home of BioEchem",
-    href: `${MAIN_SITE_URL}/`,
-  },
-  {
-    label: "STEM programs",
-    href: `${MAIN_SITE_URL}/stem-education`,
-  },
-  { label: "Curriculum", href: `${MAIN_SITE_URL}/about-3-1` },
-  { label: "Contact us", href: `${MAIN_SITE_URL}/contact-us` },
-] as const;
-
 export const SOCIAL_LINKS = [
   {
     label: "LinkedIn",

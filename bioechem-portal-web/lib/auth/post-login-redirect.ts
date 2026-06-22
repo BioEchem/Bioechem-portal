@@ -1,12 +1,12 @@
 import { AUTH_ROUTES } from "@/lib/auth/routes";
+import type { ProfileCompletionFields } from "@/lib/profile/completion";
+import { needsOnboarding } from "@/lib/profile/onboarding";
+import { PORTAL_PROFILE_COMPLETION_SELECT } from "@/lib/portal/profile-select";
 import { createClient } from "@/lib/supabase/server";
-import type { createClient as createClientFn } from "@/lib/supabase/server";
+import type { SupabaseServer } from "@/lib/supabase/types";
 
-type SupabaseServer = Awaited<ReturnType<typeof createClientFn>>;
-
-type ProfileRedirectFields = {
+type ProfileRedirectFields = ProfileCompletionFields & {
   approval_status: string | null;
-  role: string | null;
 };
 
 /** Where to send a signed-in user based on profile approval and role. */
@@ -16,16 +16,13 @@ export async function resolvePostLoginRedirect(
 ): Promise<string> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("approval_status, role")
+    .select(`approval_status, ${PORTAL_PROFILE_COMPLETION_SELECT}`)
     .eq("id", userId)
     .maybeSingle<ProfileRedirectFields>();
 
   if (profile?.approval_status === "approved") {
-    if (profile.role === "bioechem_admin") {
-      return AUTH_ROUTES.adminApprovals;
-    }
-    if (profile.role === "school_admin") {
-      return AUTH_ROUTES.schoolHub;
+    if (needsOnboarding(profile)) {
+      return AUTH_ROUTES.completeProfile;
     }
     return AUTH_ROUTES.dashboard;
   }

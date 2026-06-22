@@ -1,0 +1,118 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
+
+import { PortalPage } from "@/components/portal/portal-page";
+import { ModuleItemList } from "@/components/cohorts/module-item-list";
+import { CreateItemForm } from "@/components/cohorts/teacher/create-item-form";
+import { requireSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = { title: "Module" };
+
+type ItemRow = {
+  id: string;
+  type: string;
+  title: string;
+  content: string | null;
+  file_url: string | null;
+  external_url: string | null;
+  position: number;
+  published: boolean;
+  created_at: string;
+  assignments: { id: string; due_at: string | null; max_points: number; submission_type: string } | null;
+};
+
+export default async function ModulePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; moduleId: string }>;
+  searchParams: Promise<{ back?: string }>;
+}) {
+  const { id: cohortId, moduleId } = await params;
+  const { back } = await searchParams;
+  // back = the admin overview URL; we pass it through to the cohort content page
+  const validBack = back?.startsWith("/admin/") ? back : null;
+
+  const { supabase, user, profile } = await requireSession({
+    requireApproved: true,
+    profileSelect: "approval_status, role",
+  });
+
+  const { data: mod } = await supabase
+    .from("modules")
+    .select("id, title, description, published, cohort_id")
+    .eq("id", moduleId)
+    .single();
+
+  if (!mod || mod.cohort_id !== cohortId) notFound();
+
+  const { data: enrollment } = await supabase
+    .from("cohort_enrollments")
+    .select("role, status")
+    .eq("cohort_id", cohortId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
+  const canManage = profile.role === "bioechem_admin" || isTeacher;
+  const isEnrolled = enrollment?.status === "approved";
+
+  if (!canManage && !isEnrolled) notFound();
+  if (!canManage && !mod.published) notFound();
+
+  let baseQuery = supabase
+    .from("module_items")
+    .select("id, type, title, content, file_url, external_url, position, published, created_at, assignments(id, due_at, max_points, submission_type)")
+    .eq("module_id", moduleId)
+    .eq("cohort_id", cohortId)
+    .order("position");
+
+  if (!canManage) baseQuery = baseQuery.eq("published", true);
+
+  const { data: items } = await baseQuery.returns<ItemRow[]>();
+
+  // Fetch user's submissions for this module's assignments
+  const assignmentIds = (items ?? [])
+    .filter((i) => i.type === "assignment" && i.assignments)
+    .map((i) => i.assignments!.id);
+
+  const submissionMap: Record<string, { submitted_at: string }> = {};
+  if (assignmentIds.length > 0) {
+    const { data: subs } = await supabase
+      .from("submissions")
+      .select("assignment_id, submitted_at")
+      .eq("user_id", user.id)
+      .in("assignment_id", assignmentIds);
+
+    for (const s of subs ?? []) {
+      submissionMap[s.assignment_id] = { submitted_at: s.submitted_at };
+    }
+  }
+
+  return (
+    <PortalPage title={mod.title} description={mod.description ?? undefined}>
+      <div className="space-y-4">
+        <Link
+          href={`/cohorts/${cohortId}?tab=modules${validBack ? `&back=${encodeURIComponent(validBack)}` : ""}`}
+          className="flex items-center gap-1 text-sm text-bio-text-muted hover:text-bio-green"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back to modules
+        </Link>
+
+        <ModuleItemList
+          cohortId={cohortId}
+          moduleId={moduleId}
+          items={items ?? []}
+          submissionMap={submissionMap}
+          canManage={canManage}
+        />
+
+        {canManage ? (
+          <CreateItemForm cohortId={cohortId} moduleId={moduleId} />
+        ) : null}
+      </div>
+    </PortalPage>
+  );
+}

@@ -1,0 +1,37 @@
+import {
+  getProfileCompletionStatus,
+  type ProfileCompletionFields,
+} from "@/lib/profile/completion";
+
+export type OnboardingStatus = {
+  isComplete: boolean;
+  missingLabels: string[];
+  missingSections: ("personal" | "school")[];
+};
+
+/** Whether an approved user must finish post-approval profile onboarding. */
+export function getOnboardingStatus(
+  profile: ProfileCompletionFields,
+): OnboardingStatus {
+  if (profile.role === "participant") {
+    const status = getProfileCompletionStatus(profile);
+    return {
+      isComplete: status.isFullyComplete,
+      missingLabels: status.missingFullLabels,
+      missingSections: status.missingSections,
+    };
+  }
+
+  const status = getProfileCompletionStatus(profile);
+  const missingLabels = status.missingMinimumLabels;
+
+  return {
+    isComplete: missingLabels.length === 0,
+    missingLabels,
+    missingSections: missingLabels.length > 0 ? ["personal"] : [],
+  };
+}
+
+export function needsOnboarding(profile: ProfileCompletionFields): boolean {
+  return !getOnboardingStatus(profile).isComplete;
+}

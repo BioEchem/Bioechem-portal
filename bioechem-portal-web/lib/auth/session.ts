@@ -1,11 +1,14 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
 import { resolvePostLoginRedirect } from "@/lib/auth/post-login-redirect";
 import { AUTH_ROUTES } from "@/lib/auth/routes";
+import type { ProfileCompletionFields } from "@/lib/profile/completion";
+import { needsOnboarding } from "@/lib/profile/onboarding";
+import { PORTAL_PROFILE_COMPLETION_SELECT } from "@/lib/portal/profile-select";
 import { createClient } from "@/lib/supabase/server";
-
-type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
+import type { SupabaseServer } from "@/lib/supabase/types";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -14,12 +17,13 @@ export type SessionProfile = {
   role: string | null;
   school_id?: string | null;
   schools?: { name: string } | { name: string }[] | null;
+  rejection_reason?: string | null;
 };
 
-export type AuthSession = {
+export type AuthSession<TProfile = SessionProfile> = {
   supabase: SupabaseServer;
   user: User;
-  profile: SessionProfile;
+  profile: TProfile;
 };
 
 type RequireSessionOptions = {
@@ -29,29 +33,65 @@ type RequireSessionOptions = {
   wrongRoleRedirect?: string;
 };
 
-/** Loads the signed-in user and profile; redirects to login if unauthenticated. */
-export async function requireSession(
-  options: RequireSessionOptions = {},
-): Promise<AuthSession> {
-  const profileSelect = options.profileSelect ?? "approval_status, role";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+type CachedSessionResult<TProfile> =
+  | { kind: "unauthenticated" }
+  | { kind: "profile_error" }
+  | { kind: "no_profile" }
+  | { kind: "ok"; supabase: SupabaseServer; user: User; profile: TProfile };
 
-  if (!user) {
+/** Deduplicates auth + profile fetches within a single request. */
+const fetchSessionData = cache(
+  async <TProfile extends SessionProfile>(
+    profileSelect: string,
+  ): Promise<CachedSessionResult<TProfile>> => {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { kind: "unauthenticated" };
+    }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select(profileSelect)
+      .eq("id", user.id)
+      .maybeSingle<TProfile>();
+
+    if (error) {
+      console.error("requireSession profile:", error.message);
+      return { kind: "profile_error" };
+    }
+
+    if (!profile) {
+      return { kind: "no_profile" };
+    }
+
+    return { kind: "ok", supabase, user, profile };
+  },
+);
+
+/** Loads the signed-in user and profile; redirects to login if unauthenticated. */
+export async function requireSession<TProfile extends SessionProfile = SessionProfile>(
+  options: RequireSessionOptions = {},
+): Promise<AuthSession<TProfile>> {
+  const profileSelect = options.profileSelect ?? "approval_status, role";
+  const result = await fetchSessionData<TProfile>(profileSelect);
+
+  if (result.kind === "unauthenticated") {
     redirect(AUTH_ROUTES.login);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(profileSelect)
-    .eq("id", user.id)
-    .maybeSingle<SessionProfile>();
+  if (result.kind === "profile_error") {
+    throw new Error("Could not load your profile. Please try again later.");
+  }
 
-  if (!profile) {
+  if (result.kind === "no_profile") {
     redirect(AUTH_ROUTES.pendingApproval);
   }
+
+  const { supabase, user, profile } = result;
 
   if (options.requireApproved && profile.approval_status !== "approved") {
     redirect(
@@ -68,8 +108,28 @@ export async function requireSession(
   return { supabase, user, profile };
 }
 
+/** For `/complete-profile` — approved users who still owe mandatory profile details. */
+export async function requireCompleteProfileSession<
+  TProfile extends ProfileCompletionFields & SessionProfile = ProfileCompletionFields &
+    SessionProfile,
+>(options: { profileSelect?: string } = {}): Promise<AuthSession<TProfile>> {
+  const session = await requireSession<TProfile>({
+    requireApproved: true,
+    profileSelect:
+      options.profileSelect ?? `approval_status, role, ${PORTAL_PROFILE_COMPLETION_SELECT}`,
+  });
+
+  if (!needsOnboarding(session.profile)) {
+    redirect(AUTH_ROUTES.dashboard);
+  }
+
+  return session;
+}
+
 /** For `/pending-approval` — signed in, not yet approved (or rejected → access denied). */
-export async function requirePendingApprovalSession(): Promise<AuthSession> {
+export async function requirePendingApprovalSession(): Promise<
+  AuthSession<SessionProfile>
+> {
   const session = await requireSession();
 
   if (session.profile.approval_status === "approved") {
@@ -83,12 +143,19 @@ export async function requirePendingApprovalSession(): Promise<AuthSession> {
   return session;
 }
 
-/** Sends role-specific users away from the generic dashboard. */
-export function redirectRoleHome(profile: SessionProfile): void {
-  if (profile.role === "bioechem_admin") {
-    redirect(AUTH_ROUTES.adminApprovals);
+/** For `/access-denied` — signed in with a rejected profile. */
+export async function requireRejectedSession(): Promise<AuthSession<SessionProfile>> {
+  const session = await requireSession({
+    profileSelect: "approval_status, role, rejection_reason",
+  });
+
+  if (session.profile.approval_status === "approved") {
+    redirect(await resolvePostLoginRedirect(session.supabase, session.user.id));
   }
-  if (profile.role === "school_admin") {
-    redirect(AUTH_ROUTES.schoolHub);
+
+  if (session.profile.approval_status === "pending") {
+    redirect(AUTH_ROUTES.pendingApproval);
   }
+
+  return session;
 }
