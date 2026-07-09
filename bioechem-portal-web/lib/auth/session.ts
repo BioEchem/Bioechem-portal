@@ -88,7 +88,11 @@ export async function requireSession<TProfile extends SessionProfile = SessionPr
   }
 
   if (result.kind === "no_profile") {
-    redirect(AUTH_ROUTES.pendingApproval);
+    // Auth user exists but profile row is missing (e.g. schema was wiped).
+    // Sign them out so they land cleanly on the login page.
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect(AUTH_ROUTES.login);
   }
 
   const { supabase, user, profile } = result;

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { ExternalLink, LogOut, Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ExternalLink, Menu, X } from "lucide-react";
 
 import { SignOutButton } from "@/components/brand/sign-out-button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getPortalNavSections } from "@/lib/portal/nav";
 import { PORTAL_ROUTES } from "@/lib/portal/routes";
 import { MAIN_SITE_URL } from "@/lib/brand/site";
@@ -27,135 +28,178 @@ type PortalSidebarProps = {
 };
 
 function isActivePath(pathname: string, href: string): boolean {
-  // Exact match for routes that have child routes handled by their own nav items
   if (href === PORTAL_ROUTES.dashboard || href === PORTAL_ROUTES.account) {
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function PortalSidebar({
-  userName,
-  userEmail,
-  userRole,
-}: PortalSidebarProps) {
+export function PortalSidebar({ userName, userEmail, userRole }: PortalSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navSections = getPortalNavSections(userRole);
 
-  const sidebarContent = (
-    <>
-      <div className="border-b border-white/10 px-4 py-4">
-        <Link
-          href={PORTAL_ROUTES.dashboard}
-          onClick={() => setMobileOpen(false)}
-          className="text-lg font-semibold tracking-tight text-white transition-colors hover:text-white/90"
-        >
-          BioEchem
-        </Link>
+  // Default open to the section that contains the active route
+  const defaultSection = navSections.find((s) =>
+    s.items.some((item) => isActivePath(pathname, item.href))
+  )?.title ?? navSections[0]?.title ?? null;
+
+  const [activeSection, setActiveSection] = useState<string | null>(defaultSection);
+
+  // Update active section when route changes
+  useEffect(() => {
+    const match = navSections.find((s) =>
+      s.items.some((item) => isActivePath(pathname, item.href))
+    );
+    if (match) setActiveSection(match.title);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openSection = navSections.find((s) => s.title === activeSection) ?? null;
+
+  const rail = (
+    <div className="flex w-14 shrink-0 flex-col items-center border-r border-white/10 py-3 gap-1">
+      {/* Logo */}
+      <Link
+        href={PORTAL_ROUTES.dashboard}
+        onClick={() => setMobileOpen(false)}
+        className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-xs font-bold text-white hover:bg-white/25"
+        title="BioEchem"
+      >
+        B
+      </Link>
+
+      {/* Section icons */}
+      <div className="flex flex-1 flex-col items-center gap-1 w-full px-1">
+        {navSections.map((section) => {
+          const Icon = section.icon;
+          const isOpen = activeSection === section.title;
+          const hasActive = section.items.some((item) => isActivePath(pathname, item.href));
+          return (
+            <button
+              key={section.title}
+              type="button"
+              onClick={() => setActiveSection(isOpen ? null : section.title)}
+              title={section.title}
+              className={`flex w-full items-center justify-center rounded-lg p-2.5 transition-colors ${
+                isOpen
+                  ? "bg-white/20 text-white"
+                  : hasActive
+                  ? "bg-white/10 text-white"
+                  : "text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Icon className="size-5 shrink-0" />
+            </button>
+          );
+        })}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Portal">
-        {navSections.map((section) => (
-          <div key={section.title} className="mb-6 last:mb-0">
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-white/45">
-              {section.title}
-            </p>
-            <ul className="space-y-1">
-              {section.items.map((item) => {
-                const active = isActivePath(pathname, item.href);
-                const Icon = item.icon;
+      {/* Notification + user avatar at bottom */}
+      <div className="flex flex-col items-center gap-2 mt-auto">
+        <NotificationBell />
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white cursor-default"
+          title={userName ?? userEmail ?? ""}
+        >
+          {getInitials(userName, userEmail)}
+        </div>
+      </div>
+    </div>
+  );
 
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-white/15 text-white"
-                          : "text-white/80 hover:bg-white/10 hover:text-white"
-                      }`}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      <Icon className="size-4 shrink-0" aria-hidden />
-                      <span>{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+  const subPanel = openSection ? (
+    <div className="flex w-52 shrink-0 flex-col border-r border-white/10">
+      {/* Section header */}
+      <div className="px-4 py-4 border-b border-white/10">
+        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+          {openSection.title}
+        </p>
+      </div>
+
+      {/* Items */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <ul className="space-y-1">
+          {openSection.items.map((item) => {
+            const active = isActivePath(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-white/15 text-white"
+                      : "text-white/75 hover:bg-white/10 hover:text-white"
+                  }`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden />
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
-      {/* User identity + actions footer — always visible */}
+      {/* Footer — only shown in sub-panel */}
       <div className="border-t border-white/10 px-3 py-3 space-y-1">
-        {/* User info */}
-        <div className="flex items-center gap-3 px-2 py-1.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white">
-            {getInitials(userName, userEmail)}
-          </div>
-          <div className="min-w-0 flex-1">
-            {userName ? (
+        {userName || userEmail ? (
+          <div className="px-2 py-1 mb-1">
+            {userName && (
               <p className="truncate text-sm font-medium text-white leading-tight">{userName}</p>
-            ) : null}
-            {userEmail ? (
-              <p className="truncate text-xs text-white/55 leading-tight">{userEmail}</p>
-            ) : null}
-            {userRole ? (
+            )}
+            {userEmail && (
+              <p className="truncate text-xs text-white/50 leading-tight">{userEmail}</p>
+            )}
+            {userRole && (
               <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${ROLE_BADGE[userRole] ?? "bg-white/15 text-white/70"}`}>
                 {getRoleLabel(userRole)}
               </span>
-            ) : null}
+            )}
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col gap-1.5 pt-1">
-          <SignOutButton className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50" />
-          <a
-            href={MAIN_SITE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white/70"
-          >
-            <ExternalLink className="h-3 w-3 shrink-0" />
-            bioechem.com
-          </a>
-        </div>
+        ) : null}
+        <SignOutButton className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50" />
+        <a
+          href={MAIN_SITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white/70"
+        >
+          <ExternalLink className="h-3 w-3 shrink-0" />
+          bioechem.com
+        </a>
       </div>
-    </>
-  );
+    </div>
+  ) : null;
 
   return (
     <>
+      {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-card-border bg-bio-green-dark px-4 py-3 lg:hidden">
-        <Link
-          href={PORTAL_ROUTES.dashboard}
-          className="text-sm font-semibold text-white"
-        >
+        <Link href={PORTAL_ROUTES.dashboard} className="text-sm font-semibold text-white">
           BioEchem
         </Link>
         <button
           type="button"
-          onClick={() => setMobileOpen((open) => !open)}
+          onClick={() => setMobileOpen((o) => !o)}
           className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/10"
           aria-expanded={mobileOpen}
-          aria-controls="portal-sidebar"
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           <span className="sr-only">{mobileOpen ? "Close menu" : "Open menu"}</span>
         </button>
       </div>
 
+      {/* Desktop sidebar */}
       <aside
-        id="portal-sidebar"
-        className={`flex w-full shrink-0 flex-col bg-bio-green-dark lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:border-r lg:border-bio-green-deep ${
-          mobileOpen ? "block" : "hidden lg:flex"
+        className={`shrink-0 bg-bio-green-dark lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-row ${
+          mobileOpen ? "flex flex-row" : "hidden lg:flex"
         }`}
       >
-        {sidebarContent}
+        {rail}
+        {subPanel}
       </aside>
     </>
   );

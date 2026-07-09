@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Eye } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
@@ -10,8 +10,10 @@ import { ModuleList } from "@/components/cohorts/module-list";
 import { EnrollButton } from "@/components/cohorts/enroll-button";
 import { EnrollmentReviewTable, type ReviewableEnrollment, type ReviewerNames } from "@/components/cohorts/enrollment-review-table";
 import { RosterPeopleTable, type RosterEntry } from "@/components/cohorts/roster-people-table";
+import { ClassroomView, type ClassSession, type SessionRecording } from "@/components/cohorts/classroom/classroom-view";
 import { requireSession } from "@/lib/auth/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { getDisplayName } from "@/lib/profile/display";
 
 export const metadata: Metadata = { title: "Cohort" };
 
@@ -28,6 +30,7 @@ type AnnouncementRow = {
   title: string;
   body: string;
   is_pinned: boolean;
+  visible_to: string[];
   created_at: string;
   profiles: { full_name: string | null } | null;
 };
@@ -44,6 +47,226 @@ type GradeRow = {
   } | null;
 };
 
+type AssignmentRow = {
+  id: string;
+  due_at: string | null;
+  max_points: number | null;
+  module_item_id: string;
+  module_items: {
+    id: string;
+    title: string;
+    module_id: string;
+    published: boolean;
+  } | null;
+  submissions: { id: string; submitted_at: string }[] | null;
+};
+
+type SurveyRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  already_responded: boolean;
+};
+
+
+const TYPE_LABEL: Record<string, string> = { halfway: "Halfway", final: "Final", custom: "Custom" };
+
+type CertificateRow = {
+  id: string;
+  title: string;
+  file_url: string;
+  filename: string | null;
+  uploaded_at: string;
+};
+
+function AssignmentsTabContent({
+  assignments,
+  cohortId,
+  backHref,
+}: {
+  assignments: AssignmentRow[];
+  cohortId: string;
+  userId: string;
+  backHref?: string;
+}) {
+  const now = new Date();
+  const hasSubmission = (a: AssignmentRow) => Array.isArray(a.submissions) ? a.submissions.length > 0 : !!a.submissions;
+  const upcoming = assignments.filter(
+    (a) => !hasSubmission(a) && (!a.due_at || new Date(a.due_at) >= now)
+  );
+  const past = assignments.filter(
+    (a) => hasSubmission(a) || (a.due_at && new Date(a.due_at) < now)
+  );
+
+  function AssignmentList({ rows, emptyMsg }: { rows: AssignmentRow[]; emptyMsg: string }) {
+    if (rows.length === 0) return <p className="text-sm text-bio-text-muted">{emptyMsg}</p>;
+    return (
+      <div className="divide-y divide-card-border">
+        {rows.map((a) => {
+          const item = a.module_items;
+          const href = item
+            ? `/cohorts/${cohortId}/assignments/${a.id}${backHref ? `?back=${encodeURIComponent(backHref)}` : ""}`
+            : "#";
+          const submitted = hasSubmission(a);
+          const overdue = !submitted && a.due_at && new Date(a.due_at) < now;
+          return (
+            <div key={a.id} className="flex items-center justify-between gap-4 py-3">
+              <div className="min-w-0">
+                <Link href={href} className="text-sm font-medium text-bio-text hover:text-bio-green">
+                  {item?.title ?? "Untitled"}
+                </Link>
+                {a.due_at ? (
+                  <p className={`text-xs mt-0.5 ${overdue ? "text-red-500" : "text-bio-text-muted"}`}>
+                    Due {fmt(a.due_at)}
+                  </p>
+                ) : (
+                  <p className="text-xs mt-0.5 text-bio-text-muted">No due date</p>
+                )}
+              </div>
+              <div className="shrink-0">
+                {submitted ? (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    Submitted
+                  </span>
+                ) : overdue ? (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                    Overdue
+                  </span>
+                ) : (
+                  <Link
+                    href={href}
+                    className="rounded-full bg-bio-green/10 px-2 py-0.5 text-xs font-medium text-bio-green hover:bg-bio-green/20"
+                  >
+                    Submit
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <PortalCard>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">
+          Upcoming ({upcoming.length})
+        </h2>
+        <AssignmentList rows={upcoming} emptyMsg="No upcoming assignments." />
+      </PortalCard>
+      {past.length > 0 && (
+        <PortalCard>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-text-muted">
+            Past ({past.length})
+          </h2>
+          <AssignmentList rows={past} emptyMsg="No past assignments." />
+        </PortalCard>
+      )}
+    </div>
+  );
+}
+
+function CertificatesTabContent({ certificates }: { certificates: CertificateRow[] }) {
+  if (certificates.length === 0) {
+    return (
+      <PortalCard>
+        <p className="text-sm text-bio-text-muted">No certificates issued yet for this cohort.</p>
+      </PortalCard>
+    );
+  }
+  return (
+    <PortalCard>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bio-green">
+        Your Certificates ({certificates.length})
+      </h2>
+      <div className="divide-y divide-card-border">
+        {certificates.map((cert) => (
+          <div key={cert.id} className="flex items-center justify-between gap-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-bio-text">{cert.title}</p>
+              <p className="text-xs text-bio-text-muted mt-0.5">
+                Issued {new Date(cert.uploaded_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+            <a
+              href={cert.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-lg border border-bio-green px-3 py-1.5 text-xs font-medium text-bio-green hover:bg-bio-green/10"
+            >
+              View / Download
+            </a>
+          </div>
+        ))}
+      </div>
+    </PortalCard>
+  );
+}
+
+function SurveysTabContent({ surveys }: { surveys: SurveyRow[] }) {
+  const available = surveys.filter((s) => !s.already_responded);
+  const completed = surveys.filter((s) => s.already_responded);
+
+  return (
+    <div className="space-y-4">
+      <PortalCard>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">
+          Available ({available.length})
+        </h2>
+        {available.length === 0 ? (
+          <p className="text-sm text-bio-text-muted">No pending surveys.</p>
+        ) : (
+          <div className="divide-y divide-card-border">
+            {available.map((s) => (
+              <div key={s.id} className="flex items-center justify-between py-3 gap-3">
+                <div>
+                  <p className="text-sm font-medium text-bio-text">{s.title}</p>
+                  {s.description ? (
+                    <p className="text-xs text-bio-text-muted mt-0.5">{s.description}</p>
+                  ) : (
+                    <p className="text-xs text-bio-text-muted mt-0.5">{TYPE_LABEL[s.type] ?? s.type}</p>
+                  )}
+                </div>
+                <Link
+                  href={`/surveys/${s.id}`}
+                  className="shrink-0 rounded-full bg-bio-green/10 px-3 py-1 text-xs font-medium text-bio-green hover:bg-bio-green/20"
+                >
+                  Take survey
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </PortalCard>
+      {completed.length > 0 && (
+        <PortalCard>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-text-muted">
+            Completed ({completed.length})
+          </h2>
+          <div className="divide-y divide-card-border">
+            {completed.map((s) => (
+              <div key={s.id} className="flex items-center justify-between py-3 gap-3">
+                <div>
+                  <p className="text-sm font-medium text-bio-text">{s.title}</p>
+                  <p className="text-xs text-bio-text-muted mt-0.5">{TYPE_LABEL[s.type] ?? s.type}</p>
+                </div>
+                <Link
+                  href={`/surveys/${s.id}`}
+                  className="shrink-0 text-xs text-bio-text-muted hover:text-bio-green"
+                >
+                  View response →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </PortalCard>
+      )}
+    </div>
+  );
+}
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -68,16 +291,27 @@ export default async function CohortHomePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; back?: string }>;
+  searchParams: Promise<{ tab?: string; back?: string; as?: string }>;
 }) {
   const { id: cohortId } = await params;
-  const { tab = "home", back } = await searchParams;
+  const { tab = "home", back, as: asUserId } = await searchParams;
   const backHref = back?.startsWith("/admin/") ? back : null;
 
   const { supabase, user, profile } = await requireSession({
     requireApproved: true,
     profileSelect: "approval_status, role, school_id",
   });
+
+  const isBioAdminViewing = profile.role === "bioechem_admin" && !!asUserId;
+  const viewingUserId = isBioAdminViewing ? asUserId! : user.id;
+  // When admin is viewing as a user, use service role so RLS doesn't block cross-user data reads
+  const db = isBioAdminViewing ? (createServiceRoleClient() ?? supabase) : supabase;
+
+  let viewingUserName: string | null = null;
+  if (isBioAdminViewing) {
+    const { data: vp } = await db.from("profiles").select("full_name, email").eq("id", viewingUserId).maybeSingle<{ full_name: string | null; email: string | null }>();
+    viewingUserName = getDisplayName(vp?.full_name ?? null, vp?.email ?? null);
+  }
 
   const { data: cohort } = await supabase
     .from("cohorts")
@@ -87,11 +321,27 @@ export default async function CohortHomePage({
 
   if (!cohort) notFound();
 
-  const { data: enrollment } = await supabase
+  // Archived cohorts are inaccessible to non-admins
+  if (cohort.status === "archived" && profile.role !== "bioechem_admin") {
+    return (
+      <PortalPage title="Cohort unavailable">
+        <PortalCard>
+          <div className="py-6 text-center space-y-2">
+            <p className="text-base font-semibold text-bio-text">{cohort.name}</p>
+            <p className="text-sm text-bio-text-muted">
+              This cohort has been archived and is no longer available.
+            </p>
+          </div>
+        </PortalCard>
+      </PortalPage>
+    );
+  }
+
+  const { data: enrollment } = await db
     .from("cohort_enrollments")
     .select("role, status")
     .eq("cohort_id", cohortId)
-    .eq("user_id", user.id)
+    .eq("user_id", viewingUserId)
     .maybeSingle();
 
   const isBioAdmin = profile.role === "bioechem_admin";
@@ -115,11 +365,13 @@ export default async function CohortHomePage({
   // Fetch home/modules content
   let announcements: AnnouncementRow[] = [];
   let modules: ModuleRow[] = [];
+  type ContactRow = { id: string; name: string; email: string; title: string | null };
+  let cohortContacts: ContactRow[] = [];
   if ((tab === "home" || tab === "modules") && canViewContent) {
-    const [annRes, modRes] = await Promise.all([
+    const [annRes, modRes, contactRes] = await Promise.all([
       supabase
         .from("announcements")
-        .select("id, title, body, is_pinned, created_at, profiles(full_name)")
+        .select("id, title, body, is_pinned, visible_to, created_at, profiles(full_name)")
         .eq("cohort_id", cohortId)
         .eq("published", true)
         .order("is_pinned", { ascending: false })
@@ -132,21 +384,100 @@ export default async function CohortHomePage({
         .eq("cohort_id", cohortId)
         .order("position")
         .returns<ModuleRow[]>(),
+      supabase
+        .from("cohort_contacts")
+        .select("id, name, email, title")
+        .eq("cohort_id", cohortId)
+        .order("position")
+        .returns<ContactRow[]>(),
     ]);
     announcements = annRes.data ?? [];
     let mods = modRes.data ?? [];
     if (!canManage) mods = mods.filter((m) => m.published);
     modules = mods;
+    cohortContacts = contactRes.data ?? [];
   }
 
-  // Fetch grades data when on grades tab (current user's own grades)
+  // Fetch assignments for assignments tab
+  let cohortAssignments: AssignmentRow[] = [];
+  if (tab === "assignments" && canViewContent) {
+    const { data } = await db
+      .from("assignments")
+      .select(`id, due_at, max_points, module_item_id, module_items(id, title, module_id, published), submissions!left(id, submitted_at)`)
+      .eq("cohort_id", cohortId)
+      .eq("submissions.user_id", viewingUserId)
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .returns<AssignmentRow[]>();
+    cohortAssignments = (data ?? []).filter(
+      (a) => canManage || a.module_items?.published
+    );
+  }
+
+  // Fetch surveys for surveys tab
+  let cohortSurveys: SurveyRow[] = [];
+  if (tab === "surveys" && canViewContent) {
+    const { data: surveys } = await supabase
+      .from("surveys")
+      .select("id, title, description, type")
+      .eq("cohort_id", cohortId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .returns<Omit<SurveyRow, "already_responded">[]>();
+
+    if (surveys && surveys.length > 0) {
+      const { data: myResponses } = await db
+        .from("survey_responses")
+        .select("survey_id")
+        .eq("user_id", viewingUserId);
+      const respondedIds = new Set(
+        (myResponses ?? []).map((r: { survey_id: string }) => r.survey_id)
+      );
+      cohortSurveys = surveys.map((s) => ({ ...s, already_responded: respondedIds.has(s.id) }));
+    }
+  }
+
+  // Fetch classroom data for classroom tab
+  let classroomSessions: ClassSession[] = [];
+  let classroomRecordings: SessionRecording[] = [];
+  if (tab === "classroom" && canViewContent) {
+    const [sessRes, recRes] = await Promise.all([
+      supabase
+        .from("class_sessions")
+        .select("id, cohort_id, title, description, scheduled_at, duration_minutes, meeting_url, status, created_at")
+        .eq("cohort_id", cohortId)
+        .order("scheduled_at", { ascending: true }),
+      supabase
+        .from("session_recordings")
+        .select("id, cohort_id, session_id, title, description, video_url, file_path, thumbnail_url, published, created_at")
+        .eq("cohort_id", cohortId)
+        .order("created_at", { ascending: false }),
+    ]);
+    classroomSessions = (sessRes.data ?? []) as ClassSession[];
+    const allRecs = (recRes.data ?? []) as SessionRecording[];
+    classroomRecordings = canManage ? allRecs : allRecs.filter((r) => r.published);
+  }
+
+  // Fetch certificates for certificates tab
+  let myCertificates: CertificateRow[] = [];
+  if (tab === "certificates" && (isApprovedEnrolled || isBioAdminViewing)) {
+    const { data } = await db
+      .from("certificates")
+      .select("id, title, file_url, filename, uploaded_at")
+      .eq("cohort_id", cohortId)
+      .eq("user_id", viewingUserId)
+      .order("uploaded_at", { ascending: false })
+      .returns<CertificateRow[]>();
+    myCertificates = data ?? [];
+  }
+
+  // Fetch grades data when on grades tab
   let myGrades: GradeRow[] = [];
   if (tab === "grades" && canViewContent) {
-    const { data } = await supabase
+    const { data } = await db
       .from("grades")
       .select("id, points_earned, feedback, graded_at, assignments(id, max_points, module_items(title, module_id))")
       .eq("cohort_id", cohortId)
-      .eq("user_id", user.id)
+      .eq("user_id", viewingUserId)
       .order("graded_at", { ascending: false })
       .returns<GradeRow[]>();
     myGrades = data ?? [];
@@ -211,7 +542,11 @@ export default async function CohortHomePage({
   const tabs = [
     { key: "home", label: "Home" },
     ...(canViewContent ? [{ key: "modules", label: "Modules" }] : []),
+    ...(canViewContent ? [{ key: "assignments", label: "Assignments" }] : []),
+    ...(canViewContent ? [{ key: "surveys", label: "Surveys" }] : []),
+    ...(canViewContent ? [{ key: "classroom", label: "Classroom" }] : []),
     ...(canViewContent ? [{ key: "grades", label: "Grades" }] : []),
+    ...((isApprovedEnrolled || isBioAdminViewing) ? [{ key: "certificates", label: "Certificates" }] : []),
     ...(canViewContent ? [{ key: "roster", label: "Roster", badge: canManage ? pendingCount : 0 }] : []),
   ];
 
@@ -237,6 +572,20 @@ export default async function CohortHomePage({
           {backHref ? "Back to cohort overview" : "Back to courses"}
         </Link>
       ) : null}
+      {isBioAdminViewing && viewingUserName ? (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <Eye className="h-4 w-4 shrink-0" />
+          <span>Viewing as <strong>{viewingUserName}</strong> — read-only admin preview</span>
+          {backHref ? (
+            <Link href={backHref} className="ml-auto text-amber-700 underline hover:text-amber-900">Exit preview</Link>
+          ) : null}
+        </div>
+      ) : null}
+      {cohortData.status === "archived" && !isAdmin ? (
+        <div className="mb-3 rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          This cohort has been archived. Content is read-only and no longer accepting submissions.
+        </div>
+      ) : null}
       <div className="space-y-4">
         {/* Cohort meta bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-card-border bg-card p-4">
@@ -261,7 +610,7 @@ export default async function CohortHomePage({
             ) : null}
           </div>
 
-          {isAdmin || isTeacher ? (
+          {!isBioAdminViewing && (isAdmin || isTeacher) ? (
             <Link
               href={`/cohorts/${cohortId}?tab=roster${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -277,26 +626,51 @@ export default async function CohortHomePage({
               ) : null}
               {pendingCount > 0 ? `${pendingCount} pending enrollment${pendingCount > 1 ? "s" : ""}` : "Manage roster"}
             </Link>
-          ) : (
+          ) : !isBioAdminViewing ? (
             <EnrollButton
               cohortId={cohortId}
               enrollment={enrollment ? { role: enrollment.role, status: enrollment.status } : null}
               requiresApproval={cohortData.enrollment_requires_approval}
             />
-          )}
+          ) : null}
         </div>
 
         {/* Tabs — always visible */}
-        <CohortTabs tabs={tabs} activeTab={tab} cohortId={cohortId} backHref={backHref ?? undefined} />
+        <CohortTabs tabs={tabs} activeTab={tab} cohortId={cohortId} backHref={backHref ?? undefined} asUserId={isBioAdminViewing ? asUserId : undefined} />
 
         {/* Tab content */}
         {tab === "home" ? (
           canViewContent ? (
-            <AnnouncementsSection
-              cohortId={cohortId}
-              announcements={announcements}
-              canPost={canManage}
-            />
+            <div className="space-y-4">
+              <AnnouncementsSection
+                cohortId={cohortId}
+                announcements={announcements}
+                canPost={canManage}
+              />
+              {cohortContacts.length > 0 && (
+                <PortalCard>
+                  <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bio-green">
+                    Cohort contacts
+                  </h3>
+                  <ul className="grid gap-3 sm:grid-cols-2">
+                    {cohortContacts.map((c) => (
+                      <li key={c.id} className="rounded-xl border border-bio-green/20 bg-bio-mint/40 p-4 space-y-1">
+                        <p className="text-base font-semibold text-bio-text">{c.name}</p>
+                        {c.title && (
+                          <p className="text-sm font-medium text-bio-green">{c.title}</p>
+                        )}
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="inline-block text-sm text-bio-text-muted hover:text-bio-green hover:underline break-all"
+                        >
+                          {c.email}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </PortalCard>
+              )}
+            </div>
           ) : (
             <PortalCard>
               <p className="text-sm text-bio-text-muted text-center">
@@ -310,6 +684,25 @@ export default async function CohortHomePage({
           )
         ) : tab === "modules" && canViewContent ? (
           <ModuleList cohortId={cohortId} modules={modules} canManage={canManage} backHref={backHref ?? undefined} />
+
+        ) : tab === "assignments" && canViewContent ? (
+          <AssignmentsTabContent
+            assignments={cohortAssignments}
+            cohortId={cohortId}
+            userId={user.id}
+            backHref={backHref ?? undefined}
+          />
+
+        ) : tab === "surveys" && canViewContent ? (
+          <SurveysTabContent surveys={cohortSurveys} />
+
+        ) : tab === "classroom" && canViewContent ? (
+          <ClassroomView
+            cohortId={cohortId}
+            initialSessions={classroomSessions}
+            initialRecordings={classroomRecordings}
+            canManage={canManage}
+          />
 
         ) : tab === "grades" && canViewContent ? (
           <div className="space-y-4">
@@ -400,6 +793,9 @@ export default async function CohortHomePage({
               )}
             </PortalCard>
           </div>
+
+        ) : tab === "certificates" && isApprovedEnrolled ? (
+          <CertificatesTabContent certificates={myCertificates} />
 
         ) : tab === "roster" && canViewContent ? (
           <div className="space-y-4">

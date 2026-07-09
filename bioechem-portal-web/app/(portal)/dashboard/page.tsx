@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Eye } from "lucide-react";
 
 import { AdminPortalDashboard } from "@/components/portal/admin-portal-dashboard";
 import { ParticipantDashboard } from "@/components/portal/participant-dashboard";
@@ -21,6 +23,8 @@ import {
   getProfileCompletionStatus,
   type ProfileCompletionFields,
 } from "@/lib/profile/completion";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { getDisplayName } from "@/lib/profile/display";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -32,37 +36,91 @@ type DashboardProfile = SessionProfile &
     school_id: string | null;
   };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
+  const { as: asUserId } = await searchParams;
+
   const { supabase, user, profile } = await requireSession<DashboardProfile>({
     requireApproved: true,
     profileSelect: `full_name, email, approval_status, role, school_id, schools(name), cohorts(name), ${PORTAL_PROFILE_COMPLETION_SELECT}`,
   });
 
-  const role = profile.role ?? "participant";
-  const userContext = buildDashboardUserContext(profile, user.email ?? "—");
+  const isBioAdminViewing = profile.role === "bioechem_admin" && !!asUserId;
+
+  // When viewing as another user, swap to their profile data
+  let targetProfile: DashboardProfile | null = null;
+  let targetUserId = user.id;
+  let targetName: string | null = null;
+  let targetEmail = user.email ?? "—";
+
+  if (isBioAdminViewing) {
+    const db = createServiceRoleClient() ?? supabase;
+    const { data: tp } = await db
+      .from("profiles")
+      .select(`full_name, email, approval_status, role, school_id, schools(name), cohorts(name), ${PORTAL_PROFILE_COMPLETION_SELECT}`)
+      .eq("id", asUserId!)
+      .maybeSingle<DashboardProfile>();
+    if (tp) {
+      targetProfile = tp;
+      targetUserId = asUserId!;
+      targetEmail = tp.email ?? "—";
+      targetName = getDisplayName(tp.full_name, tp.email);
+    }
+  }
+
+  const activeProfile = targetProfile ?? profile;
+  const role = activeProfile.role ?? "participant";
+  const userContext = buildDashboardUserContext(activeProfile, targetEmail);
   const { dashboardDescription } = getRoleConfig(role);
 
+  // Admin-view banner shown at the top of every dashboard view-as render
+  const adminBanner = isBioAdminViewing && targetName ? (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <div className="flex items-center gap-2 text-sm text-amber-800">
+        <Eye className="h-4 w-4 shrink-0" />
+        <span>Viewing dashboard as <strong>{targetName}</strong> — read-only admin preview</span>
+      </div>
+      <Link
+        href={`/admin/users/${asUserId}`}
+        className="shrink-0 text-xs font-medium text-amber-700 hover:underline"
+      >
+        ← Back to profile
+      </Link>
+    </div>
+  ) : null;
+
+  // Use service role client for target-user data fetches when in view-as mode
+  const dataClient = isBioAdminViewing ? (createServiceRoleClient() ?? supabase) : supabase;
+
   if (role === "school_admin") {
-    if (!profile.school_id) {
+    if (!activeProfile.school_id) {
       return (
         <PortalPage title="Dashboard" description={dashboardDescription}>
+          {adminBanner}
           <p className="text-sm text-bio-text-muted">
-            Your account is not linked to a partner school yet. Contact{" "}
-            <a
-              href="mailto:team@bioechem.com"
-              className="font-medium text-bio-green hover:underline"
-            >
-              team@bioechem.com
-            </a>{" "}
-            to finish setup.
+            {isBioAdminViewing
+              ? "This user is not linked to a partner school yet."
+              : "Your account is not linked to a partner school yet. Contact "}
+            {!isBioAdminViewing && (
+              <a
+                href="mailto:team@bioechem.com"
+                className="font-medium text-bio-green hover:underline"
+              >
+                team@bioechem.com
+              </a>
+            )}
+            {!isBioAdminViewing && " to finish setup."}
           </p>
         </PortalPage>
       );
     }
 
     const schoolData = await loadSchoolAdminDashboard(
-      supabase,
-      profile.school_id,
+      dataClient,
+      activeProfile.school_id,
       userContext.displayName,
       userContext.email,
     );
@@ -70,6 +128,7 @@ export default async function DashboardPage() {
     if (!schoolData) {
       return (
         <PortalPage title="Dashboard" description={dashboardDescription}>
+          {adminBanner}
           <p className="text-sm text-bio-text-muted">
             Could not load school details. Please try again later.
           </p>
@@ -82,12 +141,13 @@ export default async function DashboardPage() {
         title="Dashboard"
         description={`Overview for ${schoolData.schoolName}.`}
       >
+        {adminBanner}
         <SchoolAdminDashboard data={schoolData} />
       </PortalPage>
     );
   }
 
-  if (role === "bioechem_admin") {
+  if (role === "bioechem_admin" && !isBioAdminViewing) {
     const summary = await loadAdminDashboardSummary(supabase);
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
@@ -97,11 +157,10 @@ export default async function DashboardPage() {
   }
 
   if (role === "teacher") {
-    // Fetch teacher's approved cohort enrollments and student counts
-    const { data: teacherEnrollments } = await supabase
+    const { data: teacherEnrollments } = await dataClient
       .from("cohort_enrollments")
       .select("cohort_id")
-      .eq("user_id", user.id)
+      .eq("user_id", targetUserId)
       .eq("role", "teacher")
       .eq("status", "approved");
 
@@ -110,13 +169,13 @@ export default async function DashboardPage() {
     let assignmentCount = 0;
     if (cohortIds.length > 0) {
       const [studentRes, assignmentRes] = await Promise.all([
-        supabase
+        dataClient
           .from("cohort_enrollments")
           .select("id", { count: "exact", head: true })
           .in("cohort_id", cohortIds)
           .eq("role", "participant")
           .eq("status", "approved"),
-        supabase
+        dataClient
           .from("assignments")
           .select("id", { count: "exact", head: true })
           .in("cohort_id", cohortIds),
@@ -127,6 +186,7 @@ export default async function DashboardPage() {
 
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
+        {adminBanner}
         <TeacherDashboard
           user={userContext}
           stats={{ classCount: cohortIds.length, studentCount, assignmentCount }}
@@ -138,6 +198,7 @@ export default async function DashboardPage() {
   if (role === "industry_partner") {
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
+        {adminBanner}
         <PartnerDashboard user={userContext} />
       </PortalPage>
     );
@@ -146,15 +207,17 @@ export default async function DashboardPage() {
   if (role === "shareholder") {
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
+        {adminBanner}
         <ShareholderDashboard user={userContext} />
       </PortalPage>
     );
   }
 
-  const profileCompletion = getProfileCompletionStatus(profile);
+  const profileCompletion = getProfileCompletionStatus(activeProfile);
 
   return (
     <PortalPage title="Dashboard" description={dashboardDescription}>
+      {adminBanner}
       <ParticipantDashboard user={userContext} profileCompletion={profileCompletion} />
     </PortalPage>
   );

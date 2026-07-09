@@ -9,4 +9,9 @@ export const PORTAL_ROUTES = {
   accountPassword: "/account/password",
   background: "/background",
   cohorts: "/cohorts",
+  surveys: "/surveys",
+  jobs: "/jobs",
+  shareholderDocs: "/shareholder-docs",
+  rewards: "/rewards",
+  certificates: "/certificates",
 } as const;

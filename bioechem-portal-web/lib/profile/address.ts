@@ -53,21 +53,25 @@ export function formatAddressSingleLine(address: ProfileAddress): string | null 
   return lines.length > 0 ? lines.join(" · ") : null;
 }
 
-export function profileRowToAddress(row: {
-  address_street?: string | null;
-  address_apt?: string | null;
-  address_city?: string | null;
-  address_state?: string | null;
-  address_country?: string | null;
-  address_zip?: string | null;
-}): ProfileAddress {
+/** Convert a profile_addresses row (from PostgREST join) to a ProfileAddress. */
+export function addressRowToAddress(
+  row: {
+    street?: string | null;
+    apt?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+    zip?: string | null;
+  } | null,
+): ProfileAddress {
+  if (!row) return { street: null, apt: null, city: null, state: null, country: null, zip: null };
   return {
-    street: row.address_street ?? null,
-    apt: row.address_apt ?? null,
-    city: row.address_city ?? null,
-    state: row.address_state ?? null,
-    country: row.address_country ?? null,
-    zip: row.address_zip ?? null,
+    street: row.street ?? null,
+    apt: row.apt ?? null,
+    city: row.city ?? null,
+    state: row.state ?? null,
+    country: row.country ?? null,
+    zip: row.zip ?? null,
   };
 }
 

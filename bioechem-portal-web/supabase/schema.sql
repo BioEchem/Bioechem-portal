@@ -121,44 +121,127 @@ create index cohorts_school_id_idx  on public.cohorts(school_id);
 create index cohorts_status_idx     on public.cohorts(status);
 
 -- ---------------------------------------------------------------------------
+-- Cohort contacts (project/cohort managers participants can reach out to)
+-- ---------------------------------------------------------------------------
+
+create table public.cohort_contacts (
+  id         uuid        primary key default gen_random_uuid(),
+  cohort_id  uuid        not null references public.cohorts(id) on delete cascade,
+  name       text        not null,
+  email      text        not null,
+  title      text,                        -- e.g. "Project Manager", "Cohort Lead"
+  position   int         not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index cohort_contacts_cohort_id_idx on public.cohort_contacts(cohort_id);
+
+-- ---------------------------------------------------------------------------
+-- Drive (admin file/folder storage)
+-- ---------------------------------------------------------------------------
+
+create table public.drive_items (
+  id           uuid        primary key default gen_random_uuid(),
+  name         text        not null,
+  type         text        not null check (type in ('folder', 'file')),
+  parent_id    uuid        references public.drive_items(id) on delete cascade,
+  storage_path text,                          -- null for folders
+  file_url     text,                          -- null for folders
+  mime_type    text,                          -- null for folders
+  size_bytes   bigint,                        -- null for folders
+  created_by   uuid        not null references public.profiles(id) on delete restrict,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create index drive_items_parent_id_idx on public.drive_items(parent_id);
+create index drive_items_created_by_idx on public.drive_items(created_by);
+
+-- ---------------------------------------------------------------------------
 -- Profiles
 -- ---------------------------------------------------------------------------
 
 create table public.profiles (
-  id                  uuid primary key references auth.users(id) on delete cascade,
-  email               text,
-  full_name           text,
-  first_name          text,
-  last_name           text,
-  middle_name         text,
-  phone               text,
-  address_street      text,
-  address_apt         text,
-  address_city        text,
-  address_state       text,
-  address_country     text,
-  address_zip         text,
-  state               text,
-  gender              text,
-  avatar_url          text,
-  bio                 text,
-  grade               text,
-  school_country      text,
-  resume_url          text,
-  education_background jsonb not null default '[]'::jsonb,
-  work_experience      jsonb not null default '[]'::jsonb,
-  emergency_contacts   jsonb not null default '[]'::jsonb,
-  age                 smallint,
-  role                public.user_role not null default 'participant',
-  school_id           uuid references public.schools(id),
-  other_school_name   text,
-  cohort_id           uuid references public.cohorts(id),
-  approval_status     public.approval_status not null default 'pending',
-  approved_at         timestamptz,
-  approved_by         uuid references public.profiles(id),
-  rejection_reason    text,
-  created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
+  id                uuid primary key references auth.users(id) on delete cascade,
+  email             text,
+  full_name         text,
+  first_name        text,
+  last_name         text,
+  middle_name       text,
+  phone             text,
+  gender            text,
+  avatar_url        text,
+  bio               text,
+  grade             text,
+  resume_url        text,
+  age               smallint,
+  role              public.user_role not null default 'participant',
+  school_id         uuid references public.schools(id),
+  other_school_name text,
+  cohort_id         uuid references public.cohorts(id),
+  approval_status   public.approval_status not null default 'pending',
+  approved_at       timestamptz,
+  approved_by       uuid references public.profiles(id),
+  rejection_reason  text,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+-- Address, school state, and registration details (one per user)
+create table public.profile_addresses (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null unique references public.profiles(id) on delete cascade,
+  street         text,
+  apt            text,
+  city           text,
+  state          text,          -- physical home address state
+  country        text,
+  zip            text,
+  reg_state      text,          -- state for school/registration
+  school_country text,
+  updated_at     timestamptz not null default now()
+);
+
+-- Education history (one row per entry, ordered by position)
+create table public.profile_education (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null references public.profiles(id) on delete cascade,
+  institution    text not null,
+  degree         text,
+  field_of_study text,
+  start_year     text,
+  end_year       text,
+  is_current     boolean not null default false,
+  position       int not null default 0,
+  created_at     timestamptz not null default now()
+);
+
+-- Work experience (one row per entry, ordered by position)
+create table public.profile_work_experience (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  company     text not null,
+  title       text,
+  type        text,
+  start_month text,
+  start_year  text,
+  end_month   text,
+  end_year    text,
+  is_current  boolean not null default false,
+  description text,
+  position    int not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+-- Emergency contacts (participants only, one row per contact)
+create table public.profile_emergency_contacts (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references public.profiles(id) on delete cascade,
+  name         text not null,
+  phone        text not null,
+  relationship text not null default '',
+  position     int not null default 0,
+  created_at   timestamptz not null default now()
 );
 
 create index profiles_approval_status_idx on public.profiles(approval_status);
@@ -372,11 +455,16 @@ create table public.assignments (
   id              uuid primary key default gen_random_uuid(),
   module_item_id  uuid not null unique references public.module_items(id) on delete cascade,
   cohort_id       uuid not null references public.cohorts(id) on delete cascade,
-  due_at          timestamptz,
-  max_points      int  not null default 100,
-  submission_type text not null default 'any'
-                    check (submission_type in ('file','text','any')),
-  instructions    text,
+  due_at            timestamptz,
+  max_points        int,
+  requires_grading  boolean not null default true,
+  grade_category    text not null default 'intermediate'
+                      check (grade_category in ('intermediate', 'final')),
+  assignment_type   text not null default 'assignment'
+                      check (assignment_type in ('assignment', 'presentation', 'field_trip', 'quiz', 'other')),
+  submission_type   text not null default 'any'
+                      check (submission_type in ('file','text','any')),
+  instructions      text,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -519,9 +607,13 @@ $$;
 -- Row level security
 -- ---------------------------------------------------------------------------
 
-alter table public.schools           enable row level security;
-alter table public.cohorts           enable row level security;
-alter table public.profiles          enable row level security;
+alter table public.schools                    enable row level security;
+alter table public.cohorts                    enable row level security;
+alter table public.profiles                   enable row level security;
+alter table public.profile_addresses          enable row level security;
+alter table public.profile_education          enable row level security;
+alter table public.profile_work_experience    enable row level security;
+alter table public.profile_emergency_contacts enable row level security;
 alter table public.user_resumes      enable row level security;
 alter table public.cohort_enrollments enable row level security;
 alter table public.modules           enable row level security;
@@ -608,6 +700,35 @@ create policy "profiles_school_admin_select_same_school"
     and school_id is not null
     and school_id = public.current_user_school_id()
   );
+
+-- ── Drive ──────────────────────────────────────────────────────────────────
+alter table public.drive_items enable row level security;
+create policy "drive_admin_all" on public.drive_items for all to authenticated using (is_bioechem_admin()) with check (is_bioechem_admin());
+
+-- ── Profile sub-tables ─────────────────────────────────────────────────────
+-- profile_addresses
+create policy "pa_own_select"   on public.profile_addresses for select to authenticated using (user_id = auth.uid());
+create policy "pa_own_insert"   on public.profile_addresses for insert to authenticated with check (user_id = auth.uid());
+create policy "pa_own_update"   on public.profile_addresses for update to authenticated using (user_id = auth.uid());
+create policy "pa_admin_select" on public.profile_addresses for select to authenticated using (is_bioechem_admin());
+
+-- profile_education
+create policy "pe_own_select"   on public.profile_education for select to authenticated using (user_id = auth.uid());
+create policy "pe_own_insert"   on public.profile_education for insert to authenticated with check (user_id = auth.uid());
+create policy "pe_own_delete"   on public.profile_education for delete to authenticated using (user_id = auth.uid());
+create policy "pe_admin_select" on public.profile_education for select to authenticated using (is_bioechem_admin());
+
+-- profile_work_experience
+create policy "pw_own_select"   on public.profile_work_experience for select to authenticated using (user_id = auth.uid());
+create policy "pw_own_insert"   on public.profile_work_experience for insert to authenticated with check (user_id = auth.uid());
+create policy "pw_own_delete"   on public.profile_work_experience for delete to authenticated using (user_id = auth.uid());
+create policy "pw_admin_select" on public.profile_work_experience for select to authenticated using (is_bioechem_admin());
+
+-- profile_emergency_contacts
+create policy "pec_own_select"   on public.profile_emergency_contacts for select to authenticated using (user_id = auth.uid());
+create policy "pec_own_insert"   on public.profile_emergency_contacts for insert to authenticated with check (user_id = auth.uid());
+create policy "pec_own_delete"   on public.profile_emergency_contacts for delete to authenticated using (user_id = auth.uid());
+create policy "pec_admin_select" on public.profile_emergency_contacts for select to authenticated using (is_bioechem_admin());
 
 -- ── User resumes ───────────────────────────────────────────────────────────
 
@@ -984,3 +1105,187 @@ where s.slug = 'demo-partner-high'
     select 1 from public.cohorts c
     where c.school_id = s.id and c.name = 'Fall 2026 Bio Battery Cohort'
   );
+
+-- ---------------------------------------------------------------------------
+-- Surveys
+-- ---------------------------------------------------------------------------
+
+drop table if exists public.survey_responses cascade;
+drop table if exists public.surveys cascade;
+drop type if exists public.survey_type cascade;
+drop type if exists public.survey_status cascade;
+
+create type public.survey_type as enum ('halfway', 'final', 'custom');
+create type public.survey_status as enum ('draft', 'active', 'closed');
+
+create table public.surveys (
+  id          uuid        primary key default gen_random_uuid(),
+  cohort_id   uuid        references public.cohorts(id) on delete cascade,
+  title       text        not null,
+  description text,
+  type        public.survey_type not null default 'custom',
+  status      public.survey_status not null default 'draft',
+  questions   jsonb       not null default '[]'::jsonb,
+  created_by  uuid        references auth.users(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index surveys_cohort_id_idx on public.surveys(cohort_id);
+create index surveys_status_idx on public.surveys(status);
+
+create table public.survey_responses (
+  id           uuid        primary key default gen_random_uuid(),
+  survey_id    uuid        not null references public.surveys(id) on delete cascade,
+  user_id      uuid        not null references public.profiles(id) on delete cascade,
+  answers      jsonb       not null default '{}'::jsonb,
+  submitted_at timestamptz not null default now(),
+  unique(survey_id, user_id)
+);
+
+create index survey_responses_survey_id_idx on public.survey_responses(survey_id);
+create index survey_responses_user_id_idx on public.survey_responses(user_id);
+
+alter table public.surveys enable row level security;
+alter table public.survey_responses enable row level security;
+
+create policy surveys_admin_all on public.surveys
+  for all to authenticated
+  using (is_bioechem_admin())
+  with check (is_bioechem_admin());
+
+create policy surveys_participant_read on public.surveys
+  for select to authenticated
+  using (status = 'active' and is_approved() and is_enrolled_in_cohort(cohort_id));
+
+create policy survey_responses_own on public.survey_responses
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy survey_responses_admin_read on public.survey_responses
+  for select to authenticated
+  using (is_bioechem_admin());
+
+-- ---------------------------------------------------------------------------
+-- Messaging
+-- ---------------------------------------------------------------------------
+
+drop table if exists public.messages cascade;
+drop table if exists public.conversations cascade;
+
+create table public.conversations (
+  id               uuid        primary key default gen_random_uuid(),
+  user_id          uuid        not null unique references public.profiles(id) on delete cascade,
+  last_message_at  timestamptz,
+  unread_by_admin  boolean     not null default false,
+  unread_by_user   boolean     not null default false,
+  handled_by       uuid        references public.profiles(id) on delete set null,
+  created_at       timestamptz not null default now()
+);
+
+create index conversations_user_id_idx      on public.conversations(user_id);
+create index conversations_last_message_idx on public.conversations(last_message_at desc);
+
+create table public.messages (
+  id              uuid        primary key default gen_random_uuid(),
+  conversation_id uuid        not null references public.conversations(id) on delete cascade,
+  sender_id       uuid        not null references public.profiles(id) on delete cascade,
+  body            text        not null check (char_length(body) > 0),
+  sent_at         timestamptz not null default now()
+);
+
+create index messages_conversation_id_idx on public.messages(conversation_id);
+create index messages_sent_at_idx         on public.messages(sent_at);
+
+alter table public.conversations enable row level security;
+alter table public.messages      enable row level security;
+
+create policy conversations_own on public.conversations
+  for all to authenticated
+  using  (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy conversations_admin on public.conversations
+  for all to authenticated
+  using  (is_bioechem_admin())
+  with check (is_bioechem_admin());
+
+create policy messages_own_read on public.messages
+  for select to authenticated
+  using (
+    conversation_id in (
+      select id from public.conversations where user_id = auth.uid()
+    )
+  );
+
+create policy messages_own_insert on public.messages
+  for insert to authenticated
+  with check (
+    sender_id = auth.uid() and
+    conversation_id in (
+      select id from public.conversations where user_id = auth.uid()
+    )
+  );
+
+create policy messages_admin on public.messages
+  for all to authenticated
+  using  (is_bioechem_admin())
+  with check (is_bioechem_admin());
+
+-- ---------------------------------------------------------------------------
+-- Certificates
+-- ---------------------------------------------------------------------------
+
+drop table if exists public.certificates cascade;
+
+create table public.certificates (
+  id           uuid        primary key default gen_random_uuid(),
+  cohort_id    uuid        not null references public.cohorts(id) on delete cascade,
+  user_id      uuid        not null references auth.users(id) on delete cascade,
+  title        text        not null,
+  file_url     text        not null,
+  filename     text,
+  uploaded_by  uuid        references auth.users(id) on delete set null,
+  uploaded_at  timestamptz not null default now()
+);
+
+create index certificates_cohort_id_idx on public.certificates(cohort_id);
+create index certificates_user_id_idx   on public.certificates(user_id);
+
+alter table public.certificates enable row level security;
+
+-- Students can read their own certificates
+create policy certificates_own_read on public.certificates
+  for select to authenticated
+  using (user_id = auth.uid() and is_approved());
+
+-- Admins can do everything
+create policy certificates_admin_all on public.certificates
+  for all to authenticated
+  using  (is_bioechem_admin())
+  with check (is_bioechem_admin());
+
+-- Certificates storage bucket (public read, admin write)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'certificates', 'certificates', true, 20971520,
+  array['application/pdf','image/jpeg','image/png','image/webp']
+)
+on conflict (id) do nothing;
+
+drop policy if exists certificates_public_read  on storage.objects;
+drop policy if exists certificates_admin_insert on storage.objects;
+drop policy if exists certificates_admin_delete on storage.objects;
+
+create policy certificates_public_read
+  on storage.objects for select
+  using (bucket_id = 'certificates');
+
+create policy certificates_admin_insert
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'certificates' and public.is_bioechem_admin());
+
+create policy certificates_admin_delete
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'certificates' and public.is_bioechem_admin());

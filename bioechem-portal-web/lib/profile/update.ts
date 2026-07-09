@@ -8,8 +8,8 @@ import { buildFullName } from "@/lib/profile/name";
 import type {
   EducationEntry,
   EmergencyContact,
-  UpdateAvatarBody,
   UpdateEmergencyContactsBody,
+  UpdateInternshipBody,
   UpdatePersonalProfileBody,
   UpdateProfileRequestBody,
   UpdateSchoolProfileBody,
@@ -18,7 +18,7 @@ import type {
 import type { SupabaseServer } from "@/lib/supabase/types";
 
 export type UpdateProfileResult =
-  | { ok: true; section: "personal" | "school" | "background" | "emergency_contacts" | "avatar" }
+  | { ok: true; section: "personal" | "school" | "background" | "emergency_contacts" | "avatar" | "internship" }
   | { ok: false; message: string; status: 400 };
 
 const MAX_EMERGENCY_CONTACTS = 3;
@@ -127,20 +127,14 @@ async function updateEmergencyContacts(
   supabase: SupabaseServer,
   userId: string,
   role: string,
-  input: UpdateEmergencyContactsBody,
+  contacts: EmergencyContact[],
 ): Promise<UpdateProfileResult> {
   if (role !== "participant") {
     return { ok: false, message: "Emergency contacts are only for participants.", status: 400 };
   }
 
-  const contacts = input.emergencyContacts;
-
   if (contacts.length === 0) {
-    return {
-      ok: false,
-      message: "At least one emergency contact is required.",
-      status: 400,
-    };
+    return { ok: false, message: "At least one emergency contact is required.", status: 400 };
   }
 
   if (contacts.length > MAX_EMERGENCY_CONTACTS) {
@@ -161,14 +155,22 @@ async function updateEmergencyContacts(
     }
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ emergency_contacts: contacts as EmergencyContact[], updated_at: new Date().toISOString() })
-    .eq("id", userId);
+  const { error: delErr } = await supabase
+    .from("profile_emergency_contacts")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) return { ok: false, message: delErr.message, status: 400 };
 
-  if (error) {
-    return { ok: false, message: error.message, status: 400 };
-  }
+  const rows = contacts.map((c, i) => ({
+    user_id: userId,
+    name: c.name.trim(),
+    phone: c.phone.trim(),
+    relationship: c.relationship.trim(),
+    position: i,
+  }));
+
+  const { error: insErr } = await supabase.from("profile_emergency_contacts").insert(rows);
+  if (insErr) return { ok: false, message: insErr.message, status: 400 };
 
   return { ok: true, section: "emergency_contacts" };
 }
@@ -186,23 +188,13 @@ export async function updateOwnProfile(
     const validated = validatePersonalInput(input, role);
     if ("ok" in validated) return validated;
 
-    const { error } = await supabase
+    const { error: profErr } = await supabase
       .from("profiles")
       .update({
         first_name: validated.firstName,
         middle_name: validated.middleName,
         last_name: validated.lastName,
-        full_name: buildFullName(
-          validated.firstName,
-          validated.middleName,
-          validated.lastName,
-        ),
-        address_street: validated.address.street,
-        address_apt: validated.address.apt,
-        address_city: validated.address.city,
-        address_state: validated.address.state,
-        address_country: validated.address.country,
-        address_zip: validated.address.zip,
+        full_name: buildFullName(validated.firstName, validated.middleName, validated.lastName),
         phone: validated.phone,
         gender: validated.gender,
         bio: validated.bio ?? null,
@@ -212,9 +204,26 @@ export async function updateOwnProfile(
       })
       .eq("id", userId);
 
-    if (error) {
-      return { ok: false, message: error.message, status: 400 };
-    }
+    if (profErr) return { ok: false, message: profErr.message, status: 400 };
+
+    // Upsert address into profile_addresses
+    const { error: addrErr } = await supabase
+      .from("profile_addresses")
+      .upsert(
+        {
+          user_id: userId,
+          street: validated.address.street,
+          apt: validated.address.apt,
+          city: validated.address.city,
+          state: validated.address.state,
+          country: validated.address.country,
+          zip: validated.address.zip,
+          updated_at: now,
+        },
+        { onConflict: "user_id" },
+      );
+
+    if (addrErr) return { ok: false, message: addrErr.message, status: 400 };
 
     return { ok: true, section: "personal" };
   }
@@ -228,29 +237,82 @@ export async function updateOwnProfile(
     return { ok: true, section: "avatar" };
   }
 
+  if (input.section === "internship") {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ interested_in_internship: input.interestedInInternship, updated_at: now })
+      .eq("id", userId);
+    if (error) return { ok: false, message: error.message, status: 400 };
+    return { ok: true, section: "internship" };
+  }
+
   if (input.section === "emergency_contacts") {
-    const result = await updateEmergencyContacts(supabase, userId, role, input);
-    return result;
+    return updateEmergencyContacts(supabase, userId, role, input.emergencyContacts);
   }
 
   if (input.section === "background") {
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        education_background: (input.education ?? []) as EducationEntry[],
-        work_experience: (input.workHistory ?? []) as WorkEntry[],
-        ...("resumeUrl" in input ? { resume_url: input.resumeUrl } : {}),
-        updated_at: now,
-      })
-      .eq("id", userId);
+    // Update resume_url on profiles
+    if ("resumeUrl" in input) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ resume_url: input.resumeUrl, updated_at: now })
+        .eq("id", userId);
+      if (error) return { ok: false, message: error.message, status: 400 };
+    }
 
-    if (error) {
-      return { ok: false, message: error.message, status: 400 };
+    // Replace education rows
+    const education: EducationEntry[] = input.education ?? [];
+    const { error: delEduErr } = await supabase
+      .from("profile_education")
+      .delete()
+      .eq("user_id", userId);
+    if (delEduErr) return { ok: false, message: delEduErr.message, status: 400 };
+
+    if (education.length > 0) {
+      const eduRows = education.map((e, i) => ({
+        user_id: userId,
+        institution: e.institution,
+        degree: e.degree ?? null,
+        field_of_study: e.fieldOfStudy ?? null,
+        start_year: e.startYear ?? null,
+        end_year: e.endYear ?? null,
+        is_current: e.isCurrent,
+        position: i,
+      }));
+      const { error: insEduErr } = await supabase.from("profile_education").insert(eduRows);
+      if (insEduErr) return { ok: false, message: insEduErr.message, status: 400 };
+    }
+
+    // Replace work experience rows
+    const workHistory: WorkEntry[] = input.workHistory ?? [];
+    const { error: delWorkErr } = await supabase
+      .from("profile_work_experience")
+      .delete()
+      .eq("user_id", userId);
+    if (delWorkErr) return { ok: false, message: delWorkErr.message, status: 400 };
+
+    if (workHistory.length > 0) {
+      const workRows = workHistory.map((w, i) => ({
+        user_id: userId,
+        company: w.company,
+        title: w.title ?? null,
+        type: w.type ?? null,
+        start_month: w.startMonth ?? null,
+        start_year: w.startYear ?? null,
+        end_month: w.endMonth ?? null,
+        end_year: w.endYear ?? null,
+        is_current: w.isCurrent,
+        description: w.description ?? null,
+        position: i,
+      }));
+      const { error: insWorkErr } = await supabase.from("profile_work_experience").insert(workRows);
+      if (insWorkErr) return { ok: false, message: insWorkErr.message, status: 400 };
     }
 
     return { ok: true, section: "background" };
   }
 
+  // School section
   const validated = await validateSchoolInput(supabase, input, role);
   if ("ok" in validated) return validated;
 
@@ -265,20 +327,43 @@ export async function updateOwnProfile(
     cohortId = null;
   }
 
-  const payload: Record<string, unknown> = {
-    school_id: schoolId,
-    cohort_id: cohortId,
-    other_school_name: otherSchoolName,
-    state: validated.state,
-    school_country: validated.schoolCountry ?? null,
-    grade: validated.grade ?? null,
-    updated_at: now,
-  };
+  const { error: profErr } = await supabase
+    .from("profiles")
+    .update({
+      school_id: schoolId,
+      cohort_id: cohortId,
+      other_school_name: otherSchoolName,
+      grade: validated.grade ?? null,
+      updated_at: now,
+    })
+    .eq("id", userId);
 
-  const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
+  if (profErr) return { ok: false, message: profErr.message, status: 400 };
 
-  if (error) {
-    return { ok: false, message: error.message, status: 400 };
+  // Upsert reg_state + school_country into profile_addresses
+  const { error: addrErr } = await supabase
+    .from("profile_addresses")
+    .upsert(
+      {
+        user_id: userId,
+        reg_state: validated.state ?? null,
+        school_country: validated.schoolCountry ?? null,
+        updated_at: now,
+      },
+      { onConflict: "user_id" },
+    );
+
+  if (addrErr) return { ok: false, message: addrErr.message, status: 400 };
+
+  // Update emergency contacts if provided with school section
+  if (validated.emergencyContacts && validated.emergencyContacts.length > 0) {
+    const result = await updateEmergencyContacts(
+      supabase,
+      userId,
+      role,
+      validated.emergencyContacts,
+    );
+    if (!result.ok) return result;
   }
 
   return { ok: true, section: "school" };

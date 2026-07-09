@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { notifyAllAdmins } from "@/lib/notifications/create";
+import { emailAdminCohortEnrollment } from "@/lib/notify/admin-email";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,12 +26,19 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Admins do not enroll in cohorts." }, { status: 400 });
   }
 
-  // Fetch cohort
-  const { data: cohort } = await supabase
-    .from("cohorts")
-    .select("id, status, is_active, max_enrollment, enrollment_requires_approval")
-    .eq("id", cohortId)
-    .single();
+  // Fetch cohort + user name for notification
+  const [{ data: cohort }, { data: userProfile }] = await Promise.all([
+    supabase
+      .from("cohorts")
+      .select("id, name, status, is_active, max_enrollment, enrollment_requires_approval")
+      .eq("id", cohortId)
+      .single(),
+    supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .single(),
+  ]);
 
   if (!cohort || !cohort.is_active || cohort.status !== "active") {
     return NextResponse.json({ error: "Cohort is not available." }, { status: 404 });
@@ -89,6 +98,18 @@ export async function POST(_req: Request, { params }: Params) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (cohort.enrollment_requires_approval) {
+    const who = userProfile?.full_name?.trim() || userProfile?.email || "A user";
+    void notifyAllAdmins({
+      type: "general",
+      title: "Cohort enrollment pending approval",
+      body: `${who} requested to join "${cohort.name}".`,
+      link: `/admin/cohorts/${cohortId}`,
+    });
+    emailAdminCohortEnrollment(who, cohort.name, cohortId);
+  }
+
   return NextResponse.json({ data, requiresApproval: cohort.enrollment_requires_approval }, { status: 201 });
 }
 

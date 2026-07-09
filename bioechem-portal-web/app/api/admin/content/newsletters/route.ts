@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data, error } = await auth.supabase
     .from("newsletters")
-    .select("id, title, date, excerpt, body, pdf_url, published, position, created_at")
+    .select("id, title, date, excerpt, body, pdf_url, video_url, visible_to, published, position, created_at")
     .order("date", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -27,15 +27,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "title, date, and excerpt are required." }, { status: 400 });
   }
 
+  const VALID_ROLES = ["participant", "teacher", "school_admin", "industry_partner", "shareholder", "bioechem_admin"];
+  const visibleTo: string[] = Array.isArray(body.visible_to)
+    ? (body.visible_to as unknown[]).filter((r): r is string => typeof r === "string" && VALID_ROLES.includes(r))
+    : [];
+
   const { data, error } = await auth.supabase
     .from("newsletters")
     .insert({
       title,
       date,
       excerpt,
-      body:    typeof body.body    === "string" ? body.body.trim()    || null : null,
-      pdf_url: typeof body.pdf_url === "string" ? body.pdf_url.trim() || null : null,
-      published: body.published === true,
+      body:       typeof body.body    === "string" ? body.body.trim()    || null : null,
+      pdf_url:    typeof body.pdf_url === "string" ? body.pdf_url.trim() || null : null,
+      published:  body.published === true,
+      visible_to: visibleTo,
       created_by: auth.adminUserId,
     })
     .select()

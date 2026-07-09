@@ -1,26 +1,28 @@
-import { parseEmergencyContacts } from "@/lib/profile/emergency-contacts";
-import {
-  hasRequiredAddress,
-  profileRowToAddress,
-} from "@/lib/profile/address";
+import { hasRequiredAddress, addressRowToAddress } from "@/lib/profile/address";
 
 export type ProfileCompletionFields = {
   role: string | null;
   first_name: string | null;
   last_name: string | null;
   age: number | null;
-  address_street: string | null;
-  address_apt: string | null;
-  address_city: string | null;
-  address_state: string | null;
-  address_country: string | null;
-  address_zip: string | null;
   phone: string | null;
-  state: string | null;
   school_id: string | null;
   other_school_name: string | null;
   cohort_id: string | null;
-  emergency_contacts: unknown;
+  profile_addresses: {
+    street: string | null;
+    apt: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    zip: string | null;
+    reg_state: string | null;
+  } | null;
+  profile_emergency_contacts: {
+    name: string;
+    phone: string;
+    relationship: string;
+  }[];
 };
 
 export type ProfileCompletionStatus = {
@@ -33,19 +35,17 @@ export type ProfileCompletionStatus = {
   missingSections: ("personal" | "school")[];
 };
 
-function hasValidEmergencyContacts(value: unknown): boolean {
-  const contacts = parseEmergencyContacts(value);
+function hasValidEmergencyContacts(
+  contacts: { name: string; phone: string; relationship: string }[],
+): boolean {
   return contacts.some(
-    (contact) =>
-      contact.name.trim() &&
-      contact.phone.trim() &&
-      contact.relationship.trim(),
+    (c) => c.name.trim() && c.phone.trim() && c.relationship.trim(),
   );
 }
 
 export function getMinimumMissingLabels(profile: ProfileCompletionFields): string[] {
   const missing: string[] = [];
-  const address = profileRowToAddress(profile);
+  const address = addressRowToAddress(profile.profile_addresses);
 
   if (!profile.first_name?.trim()) missing.push("First name");
   if (!profile.last_name?.trim()) missing.push("Last name");
@@ -77,21 +77,17 @@ function getFullMissingLabels(profile: ProfileCompletionFields): {
     schoolIncomplete = true;
   }
 
-  if (!profile.state?.trim()) {
+  if (!profile.profile_addresses?.reg_state?.trim()) {
     missing.push("State");
     schoolIncomplete = true;
   }
 
-  if (!hasValidEmergencyContacts(profile.emergency_contacts)) {
+  if (!hasValidEmergencyContacts(profile.profile_emergency_contacts ?? [])) {
     missing.push("Emergency contact");
     schoolIncomplete = true;
   }
 
-  return {
-    labels: missing,
-    personalIncomplete,
-    schoolIncomplete,
-  };
+  return { labels: missing, personalIncomplete, schoolIncomplete };
 }
 
 /** Profile completion tiers for participants. Other roles only check minimum personal fields. */

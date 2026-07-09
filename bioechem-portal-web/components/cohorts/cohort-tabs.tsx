@@ -9,17 +9,24 @@ export function CohortTabs({
   activeTab,
   cohortId,
   backHref,
+  baseHref,
+  asUserId,
 }: {
   tabs: Tab[];
   activeTab: string;
   cohortId: string;
   backHref?: string;
+  baseHref?: string;
+  asUserId?: string;
 }) {
   return (
     <div className="flex gap-1 overflow-x-auto rounded-xl border border-card-border bg-card p-1">
       {tabs.map((tab) => {
-        const base = tab.href ?? `/cohorts/${cohortId}?tab=${tab.key}`;
-        const href = backHref ? `${base}&back=${encodeURIComponent(backHref)}` : base;
+        const root = baseHref ?? `/cohorts/${cohortId}`;
+        let base = tab.href ?? `${root}?tab=${tab.key}`;
+        if (asUserId) base += `${base.includes("?") ? "&" : "?"}as=${asUserId}`;
+        const sep = base.includes("?") ? "&" : "?";
+        const href = backHref ? `${base}${sep}back=${encodeURIComponent(backHref)}` : base;
         return (
         <Link
           key={tab.key}

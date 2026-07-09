@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { authInputClassName, authLabelClassName } from "@/components/auth/form-styles";
 
@@ -15,9 +16,11 @@ type Cohort = {
   end_date: string | null;
   max_enrollment: number | null;
   enrollment_requires_approval: boolean;
+  cohort_contacts?: { id: string; name: string; email: string; title: string | null; position: number }[];
 } | null;
 
 type SchoolOption = { id: string; name: string };
+type Contact = { name: string; email: string; title: string };
 
 type Props = {
   cohort: Cohort;
@@ -44,8 +47,26 @@ export function AdminCohortForm({ cohort, schools, isBioAdmin, presetSchoolId }:
   const [requiresApproval, setRequiresApproval] = useState(
     cohort?.enrollment_requires_approval ?? false,
   );
+  const [contacts, setContacts] = useState<Contact[]>(
+    (cohort?.cohort_contacts ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((c) => ({ name: c.name, email: c.email, title: c.title ?? "" }))
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function addContact() {
+    setContacts((prev) => [...prev, { name: "", email: "", title: "" }]);
+  }
+
+  function removeContact(i: number) {
+    setContacts((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  function updateContact(i: number, field: keyof Contact, value: string) {
+    setContacts((prev) => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,6 +93,7 @@ export function AdminCohortForm({ cohort, schools, isBioAdmin, presetSchoolId }:
           endDate: endDate || null,
           maxEnrollment: maxEnrollmentNum,
           enrollmentRequiresApproval: requiresApproval,
+          contacts: contacts.filter((c) => c.name.trim() && c.email.trim()),
         }),
       });
       const json = await res.json() as { data?: { id: string }; error?: string };
@@ -194,6 +216,79 @@ export function AdminCohortForm({ cohort, schools, isBioAdmin, presetSchoolId }:
         />
         Require approval for enrollment requests
       </label>
+
+      {/* Contacts */}
+      <div className="space-y-3 border-t border-card-border pt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-bio-text">Cohort contacts</p>
+            <p className="text-xs text-bio-text-muted">Project or cohort managers participants can reach out to</p>
+          </div>
+          <button
+            type="button"
+            onClick={addContact}
+            disabled={pending}
+            className="flex items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-xs font-medium text-bio-green hover:bg-bio-surface disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add contact
+          </button>
+        </div>
+
+        {contacts.length === 0 ? (
+          <p className="text-xs text-bio-text-muted italic">No contacts added yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {contacts.map((c, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-card-border bg-bio-surface p-3 sm:grid-cols-3">
+                <div>
+                  <label className={authLabelClassName}>Name *</label>
+                  <input
+                    type="text"
+                    value={c.name}
+                    onChange={(e) => updateContact(i, "name", e.target.value)}
+                    disabled={pending}
+                    placeholder="Jane Smith"
+                    className={authInputClassName}
+                  />
+                </div>
+                <div>
+                  <label className={authLabelClassName}>Email *</label>
+                  <input
+                    type="email"
+                    value={c.email}
+                    onChange={(e) => updateContact(i, "email", e.target.value)}
+                    disabled={pending}
+                    placeholder="jane@example.com"
+                    className={authInputClassName}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className={authLabelClassName}>Title <span className="font-normal text-bio-text-muted">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={c.title}
+                      onChange={(e) => updateContact(i, "title", e.target.value)}
+                      disabled={pending}
+                      placeholder="Project Manager"
+                      className={authInputClassName}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeContact(i)}
+                    disabled={pending}
+                    className="mt-6 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50"
+                    aria-label="Remove contact"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {error ? (
         <p className="text-sm text-red-600" role="alert">{error}</p>

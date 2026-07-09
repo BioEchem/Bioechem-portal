@@ -1,4 +1,4 @@
-import type { EducationEntry } from "@/lib/profile/types";
+import type { EducationEntry, ProfileEducationRow } from "@/lib/profile/types";
 
 export const DEGREE_OPTIONS = [
   { value: "", label: "Select degree (optional)" },
@@ -31,6 +31,21 @@ export function parseEducationEntries(value: unknown): EducationEntry[] {
     });
   }
   return result;
+}
+
+/** Convert DB rows (snake_case) to form-friendly EducationEntry (camelCase). */
+export function educationRowsToEntries(rows: ProfileEducationRow[]): EducationEntry[] {
+  return [...rows]
+    .sort((a, b) => a.position - b.position)
+    .map((r) => ({
+      id: r.id,
+      institution: r.institution,
+      degree: r.degree,
+      fieldOfStudy: r.field_of_study,
+      startYear: r.start_year,
+      endYear: r.end_year,
+      isCurrent: r.is_current,
+    }));
 }
 
 export function emptyEducationEntry(): EducationEntry {

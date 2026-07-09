@@ -84,5 +84,16 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Insert contacts if provided
+  const contacts = Array.isArray(body.contacts) ? body.contacts as { name: string; email: string; title?: string }[] : [];
+  if (contacts.length > 0 && data?.id) {
+    await supabase.from("cohort_contacts").insert(
+      contacts
+        .filter((c) => c.name?.trim() && c.email?.trim())
+        .map((c, i) => ({ cohort_id: data.id, name: c.name.trim(), email: c.email.trim(), title: c.title?.trim() || null, position: i }))
+    );
+  }
+
   return NextResponse.json({ data }, { status: 201 });
 }

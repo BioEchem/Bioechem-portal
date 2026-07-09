@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, CheckCircle } from "lucide-react";
+import { Upload, CheckCircle, FileText, RotateCcw } from "lucide-react";
 
 type ExistingSubmission = {
   id: string;
@@ -17,11 +17,13 @@ export function AssignmentSubmitForm({
   assignmentId,
   submissionType,
   existingSubmission,
+  isOverdue,
 }: {
   cohortId: string;
   assignmentId: string;
   submissionType: string;
   existingSubmission: ExistingSubmission;
+  isOverdue: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,6 +32,7 @@ export function AssignmentSubmitForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showResubmit, setShowResubmit] = useState(false);
 
   const isText = submissionType === "text" || submissionType === "any";
   const isFile = submissionType === "file" || submissionType === "any";
@@ -47,8 +50,7 @@ export function AssignmentSubmitForm({
       if (file) {
         const form = new FormData();
         form.append("file", file);
-        const uploadPath = `/api/cohorts/${cohortId}/assignments/${assignmentId}/upload`;
-        const ur = await fetch(uploadPath, { method: "POST", body: form });
+        const ur = await fetch(`/api/cohorts/${cohortId}/assignments/${assignmentId}/upload`, { method: "POST", body: form });
         if (!ur.ok) {
           const uj = await ur.json() as { error?: string };
           setError(uj.error ?? "File upload failed.");
@@ -71,6 +73,7 @@ export function AssignmentSubmitForm({
       const json = await res.json() as { error?: string };
       if (!res.ok) { setError(json.error ?? "Failed to submit."); return; }
       setSuccess(true);
+      setShowResubmit(false);
       router.refresh();
     } catch {
       setError("Network error.");
@@ -79,16 +82,99 @@ export function AssignmentSubmitForm({
     }
   }
 
+  // Past due — show what was submitted (or nothing), no form
+  if (isOverdue) {
+    return (
+      <div className="space-y-3">
+        {existingSubmission ? (
+          <>
+            <div className="flex items-center gap-2 text-sm text-green-700">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span>
+                Submitted on{" "}
+                {new Date(existingSubmission.submitted_at).toLocaleString("en-US", {
+                  month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+                })}
+              </span>
+            </div>
+            {existingSubmission.submission_text && (
+              <div className="rounded-lg border border-card-border bg-bio-surface px-4 py-3 text-sm text-bio-text whitespace-pre-wrap">
+                {existingSubmission.submission_text}
+              </div>
+            )}
+            {existingSubmission.filename && existingSubmission.file_url && (
+              <a
+                href={existingSubmission.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-bio-green hover:underline"
+              >
+                <FileText className="h-4 w-4" />
+                {existingSubmission.filename}
+              </a>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-bio-text-muted">
+            The deadline has passed. No submission was made.
+          </p>
+        )}
+        <p className="text-xs text-bio-text-muted italic">Submissions are closed — the due date has passed.</p>
+      </div>
+    );
+  }
+
+  // Not overdue, already submitted — show submission + collapsed resubmit option
+  if (existingSubmission && !showResubmit) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm text-green-700">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>
+            Submitted on{" "}
+            {new Date(existingSubmission.submitted_at).toLocaleString("en-US", {
+              month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+            })}
+          </span>
+        </div>
+
+        {existingSubmission.submission_text && (
+          <div className="rounded-lg border border-card-border bg-bio-surface px-4 py-3 text-sm text-bio-text whitespace-pre-wrap">
+            {existingSubmission.submission_text}
+          </div>
+        )}
+        {existingSubmission.filename && existingSubmission.file_url && (
+          <a
+            href={existingSubmission.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-bio-green hover:underline"
+          >
+            <FileText className="h-4 w-4" />
+            {existingSubmission.filename}
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setShowResubmit(true)}
+          className="inline-flex items-center gap-1.5 text-xs text-bio-text-muted hover:text-bio-green"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Resubmit
+        </button>
+      </div>
+    );
+  }
+
+  // No submission yet (or resubmit open) — show the form
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-4">
-      {existingSubmission ? (
-        <p className="text-xs text-bio-text-muted">
-          Last submitted:{" "}
-          {new Date(existingSubmission.submitted_at).toLocaleString("en-US", {
-            month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-          })}
+      {showResubmit && (
+        <p className="text-xs text-amber-600">
+          You are replacing your previous submission.
         </p>
-      ) : null}
+      )}
 
       {isText ? (
         <div>
@@ -110,11 +196,6 @@ export function AssignmentSubmitForm({
           <label className="mb-1.5 block text-xs font-medium text-bio-text-muted uppercase tracking-wide">
             {submissionType === "any" ? "File attachment" : "Upload file"}
           </label>
-          {existingSubmission?.filename ? (
-            <p className="mb-2 text-sm text-bio-text-muted">
-              Current file: <span className="text-bio-text">{existingSubmission.filename}</span>
-            </p>
-          ) : null}
           <div
             className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-card-border p-6 hover:border-bio-green/40"
             onClick={() => fileRef.current?.click()}
@@ -140,13 +221,24 @@ export function AssignmentSubmitForm({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-lg bg-bio-green px-5 py-2 text-sm font-medium text-white hover:bg-bio-green/90 disabled:opacity-40"
-      >
-        {loading ? "Submitting…" : existingSubmission ? "Update submission" : "Submit"}
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-bio-green px-5 py-2 text-sm font-medium text-white hover:bg-bio-green/90 disabled:opacity-40"
+        >
+          {loading ? "Submitting…" : showResubmit ? "Resubmit" : "Submit"}
+        </button>
+        {showResubmit && (
+          <button
+            type="button"
+            onClick={() => setShowResubmit(false)}
+            className="rounded-lg border border-card-border px-4 py-2 text-sm text-bio-text-muted hover:text-bio-text"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }

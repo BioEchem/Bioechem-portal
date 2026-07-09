@@ -4,6 +4,7 @@ import type {
   UpdateAvatarBody,
   UpdateBackgroundProfileBody,
   UpdateEmergencyContactsBody,
+  UpdateInternshipBody,
   UpdatePersonalProfileBody,
   UpdateProfileRequestBody,
   UpdateSchoolProfileBody,
@@ -166,6 +167,10 @@ function parseAvatarBody(record: Record<string, unknown>): UpdateAvatarBody {
   return { section: "avatar", avatarUrl: trimOrNull(record.avatarUrl) };
 }
 
+function parseInternshipBody(record: Record<string, unknown>): UpdateInternshipBody {
+  return { section: "internship", interestedInInternship: Boolean(record.interestedInInternship) };
+}
+
 export function parseUpdateProfileBody(body: unknown): UpdateProfileRequestBody | null {
   if (!body || typeof body !== "object") return null;
 
@@ -177,6 +182,7 @@ export function parseUpdateProfileBody(body: unknown): UpdateProfileRequestBody 
   if (section === "background") return parseBackgroundBody(record);
   if (section === "emergency_contacts") return parseEmergencyContactsBody(record);
   if (section === "avatar") return parseAvatarBody(record);
+  if (section === "internship") return parseInternshipBody(record);
 
   return null;
 }

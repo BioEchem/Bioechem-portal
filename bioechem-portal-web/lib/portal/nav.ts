@@ -4,14 +4,20 @@ import {
   Briefcase,
   Building2,
   ClipboardList,
+  FolderOpen,
   GraduationCap,
-  Home,
+  Globe,
   KeyRound,
   LayoutDashboard,
   MessageSquare,
   Newspaper,
   ShieldCheck,
+  ClipboardCheck,
   User,
+  FileStack,
+  Award,
+  Layers,
+  FileEdit,
 } from "lucide-react";
 
 import { AUTH_ROUTES } from "@/lib/auth/routes";
@@ -26,30 +32,46 @@ export type PortalNavItem = {
 
 export type PortalNavSection = {
   title: string;
+  icon: LucideIcon;
   items: PortalNavItem[];
 };
 
 const ACCOUNT_SECTION: PortalNavSection = {
   title: "Account",
+  icon: User,
   items: [
     { label: "Profile", href: PORTAL_ROUTES.account, icon: User },
     { label: "Background", href: PORTAL_ROUTES.background, icon: Briefcase },
     { label: "Password", href: PORTAL_ROUTES.accountPassword, icon: KeyRound },
+    { label: "Certificates", href: PORTAL_ROUTES.certificates, icon: Award },
   ],
 };
 
-const ADMIN_SECTION: PortalNavSection = {
-  title: "Administration",
+const ADMIN_MANAGE_SECTION: PortalNavSection = {
+  title: "Manage",
+  icon: Layers,
   items: [
-    { label: "User approvals", href: AUTH_ROUTES.adminApprovals, icon: ShieldCheck },
+    { label: "User Approvals", href: AUTH_ROUTES.adminApprovals, icon: ShieldCheck },
     { label: "Schools", href: AUTH_ROUTES.adminSchools, icon: Building2 },
     { label: "Cohorts", href: AUTH_ROUTES.adminCohorts, icon: GraduationCap },
+    { label: "Surveys", href: AUTH_ROUTES.adminSurveys, icon: ClipboardCheck },
+    // { label: "Job Postings", href: AUTH_ROUTES.adminJobs, icon: BriefcaseBusiness }, // TODO: re-enable when job postings feature is ready
+  ],
+};
+
+const ADMIN_CONTENT_SECTION: PortalNavSection = {
+  title: "Content",
+  icon: FileEdit,
+  items: [
     { label: "Website Content", href: AUTH_ROUTES.adminContent, icon: Newspaper },
+    { label: "Drive", href: AUTH_ROUTES.adminDrive, icon: FolderOpen },
+    { label: "Messages", href: PORTAL_ROUTES.messaging, icon: MessageSquare },
   ],
 };
 
 const SCHOOL_ADMIN_SECTION: PortalNavSection = {
-  title: "Administration",
+  title: "Manage",
+  icon: Layers,
   items: [
     { label: "My Cohorts", href: AUTH_ROUTES.adminCohorts, icon: GraduationCap },
   ],
@@ -89,11 +111,35 @@ function buildPortalItems(role: string | null): PortalNavItem[] {
     });
   }
 
-  if (nav.includeMessaging) {
+  // Messaging only for non-admin roles — admins access it via Content section
+  if (nav.includeMessaging && role !== "bioechem_admin") {
     items.push({
       label: "Messaging",
       href: PORTAL_ROUTES.messaging,
       icon: MessageSquare,
+    });
+  }
+
+  if (nav.includeSurveys) {
+    items.push({
+      label: "Surveys",
+      href: PORTAL_ROUTES.surveys,
+      icon: ClipboardCheck,
+    });
+  }
+
+  // TODO: re-enable when job postings feature is ready
+  // items.push({
+  //   label: "Jobs",
+  //   href: PORTAL_ROUTES.jobs,
+  //   icon: BriefcaseBusiness,
+  // });
+
+  if (nav.includeShareholderDocs) {
+    items.push({
+      label: "Documents",
+      href: PORTAL_ROUTES.shareholderDocs,
+      icon: FileStack,
     });
   }
 
@@ -102,19 +148,21 @@ function buildPortalItems(role: string | null): PortalNavItem[] {
 
 const WEBSITE_SECTION: PortalNavSection = {
   title: "Website",
+  icon: Globe,
   items: [
-    { label: "Home", href: "/", icon: Home },
+    { label: "Home", href: "/", icon: Globe },
   ],
 };
 
 /** Portal sidebar sections tailored to the signed-in user's role. */
 export function getPortalNavSections(role: string | null): PortalNavSection[] {
   const sections: PortalNavSection[] = [
-    { title: "Portal", items: buildPortalItems(role) },
+    { title: "Portal", icon: LayoutDashboard, items: buildPortalItems(role) },
   ];
 
   if (role === "bioechem_admin") {
-    sections.push(ADMIN_SECTION);
+    sections.push(ADMIN_MANAGE_SECTION);
+    sections.push(ADMIN_CONTENT_SECTION);
   } else if (role === "school_admin") {
     sections.push(SCHOOL_ADMIN_SECTION);
   }

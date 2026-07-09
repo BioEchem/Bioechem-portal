@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { emailUsersNewModule } from "@/lib/notify/user-email";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -96,5 +97,28 @@ export async function POST(req: Request, { params }: Params) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Notify enrolled participants when a module is published immediately (fire-and-forget)
+  if (data.published && !data.publish_at) {
+    Promise.all([
+      supabase.from("cohorts").select("title").eq("id", cohortId).single(),
+      supabase
+        .from("cohort_enrollments")
+        .select("profiles(email, full_name)")
+        .eq("cohort_id", cohortId)
+        .eq("role", "participant")
+        .eq("status", "approved"),
+    ]).then(([cohortRes, enrollRes]) => {
+      const cohortName = cohortRes.data?.title ?? "your cohort";
+      const recipients = (enrollRes.data ?? []).flatMap((e) => {
+        const p = e.profiles as unknown as { email: string | null; full_name: string | null } | null;
+        return p?.email ? [{ email: p.email, name: p.full_name ?? p.email }] : [];
+      });
+      if (recipients.length > 0) {
+        emailUsersNewModule(recipients, cohortName, title, cohortId);
+      }
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ data }, { status: 201 });
 }

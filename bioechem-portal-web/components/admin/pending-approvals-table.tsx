@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 
@@ -98,7 +99,8 @@ export function PendingApprovalsTable({ rows: initialRows }: PendingApprovalsTab
               <th className="py-2 pr-4 font-medium">Role</th>
               <th className="py-2 pr-4 font-medium">School</th>
               <th className="py-2 pr-4 font-medium">Signed up</th>
-              <th className="py-2 font-medium">Actions</th>
+              <th className="py-2 pr-4 font-medium">Actions</th>
+              <th className="py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -114,7 +116,7 @@ export function PendingApprovalsTable({ rows: initialRows }: PendingApprovalsTab
                     <td className="py-2 pr-4">{item.role}</td>
                     <td className="py-2 pr-4">{item.schoolName}</td>
                     <td className="py-2 pr-4">{item.signedUp}</td>
-                    <td className="py-2">
+                    <td className="py-2 pr-4">
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -134,10 +136,18 @@ export function PendingApprovalsTable({ rows: initialRows }: PendingApprovalsTab
                         </button>
                       </div>
                     </td>
+                    <td className="py-2">
+                      <Link
+                        href={`/admin/users/${item.id}`}
+                        className="text-xs font-medium text-bio-green hover:underline whitespace-nowrap"
+                      >
+                        View profile →
+                      </Link>
+                    </td>
                   </tr>
                   {rejecting ? (
                     <tr className="border-b border-card-border/70 bg-red-50/40">
-                      <td colSpan={6} className="px-2 py-3">
+                      <td colSpan={7} className="px-2 py-3">
                         <div className="max-w-xl space-y-3">
                           <p className="text-sm font-medium text-bio-text">
                             Reject {item.fullName || item.email || "this user"}?

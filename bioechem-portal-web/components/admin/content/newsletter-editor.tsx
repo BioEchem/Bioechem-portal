@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Loader2, Trash2, Upload, X } from "lucide-react";
+import { FileText, FileVideo, Loader2, Trash2, Upload, X } from "lucide-react";
 
 export type NewsletterRow = {
   id: string;
@@ -10,16 +10,25 @@ export type NewsletterRow = {
   excerpt: string;
   body: string | null;
   pdf_url: string | null;
+  video_url: string | null;
+  visible_to: string[];
   published: boolean;
   created_at: string;
 };
+
+const ROLE_OPTIONS = [
+  { value: "participant",      label: "Participants" },
+  { value: "teacher",          label: "Teachers" },
+  { value: "school_admin",     label: "School admins" },
+  { value: "industry_partner", label: "Industry partners" },
+  { value: "shareholder",      label: "Shareholders" },
+] as const;
 
 type Mode = "create" | "edit";
 
 type Props = {
   mode: Mode;
   initial?: Partial<NewsletterRow>;
-  /** Returns the saved row so the editor can upload the PDF against its id. */
   onSave: (data: Partial<NewsletterRow>) => Promise<NewsletterRow>;
   onCancel: () => void;
 };
@@ -36,35 +45,77 @@ async function uploadPdf(newsletterId: string, file: File): Promise<string> {
   return json.url as string;
 }
 
+async function uploadVideo(newsletterId: string, file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`/api/admin/content/newsletters/${newsletterId}/video`, {
+    method: "POST",
+    body: fd,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Video upload failed");
+  return json.url as string;
+}
+
+async function deleteVideo(newsletterId: string): Promise<void> {
+  const res = await fetch(`/api/admin/content/newsletters/${newsletterId}/video`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const json = await res.json();
+    throw new Error(json.error ?? "Failed to remove video");
+  }
+}
+
 export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props) {
   const [title, setTitle] = useState(initial.title ?? "");
   const [date, setDate] = useState(initial.date ?? "");
   const [excerpt, setExcerpt] = useState(initial.excerpt ?? "");
   const [body, setBody] = useState(initial.body ?? "");
   const [published, setPublished] = useState(initial.published ?? false);
+  const [visibleTo, setVisibleTo] = useState<string[]>(initial.visible_to ?? []);
   const [pendingPdf, setPendingPdf] = useState<File | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [removeVideo, setRemoveVideo] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setStatus(mode === "create" ? "Creating…" : "Saving…");
     try {
-      const saved = await onSave({ title, date, excerpt, body: body || null, published });
+      const saved = await onSave({ title, date, excerpt, body: body || null, published, visible_to: visibleTo });
 
       if (pendingPdf) {
         setStatus("Uploading PDF…");
         await uploadPdf(saved.id, pendingPdf);
         setPendingPdf(null);
       }
+
+      if (removeVideo && !pendingVideo) {
+        setStatus("Removing video…");
+        await deleteVideo(saved.id);
+        setRemoveVideo(false);
+      }
+
+      if (pendingVideo) {
+        setStatus("Uploading video…");
+        await uploadVideo(saved.id, pendingVideo);
+        setPendingVideo(null);
+        setRemoveVideo(false);
+      }
+
       setStatus(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
       setStatus(null);
     }
   }
+
+  const hasCurrentVideo = initial.video_url && !removeVideo;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -104,10 +155,10 @@ export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props
         />
       </div>
 
-      {/* PDF upload — available on both create and edit */}
+      {/* PDF upload */}
       <div>
         <label className="mb-2 block text-xs font-medium text-bio-text-muted">
-          PDF <span className="font-normal">(optional — readers can open it in a modal)</span>
+          PDF <span className="font-normal">(optional)</span>
         </label>
         {initial.pdf_url && !pendingPdf ? (
           <div className="flex items-center gap-3">
@@ -121,7 +172,7 @@ export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props
             </a>
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => pdfRef.current?.click()}
               className="text-xs text-bio-text-muted hover:text-bio-green"
             >
               Replace
@@ -136,7 +187,7 @@ export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props
             </span>
             <button
               type="button"
-              onClick={() => { setPendingPdf(null); if (fileRef.current) fileRef.current.value = ""; }}
+              onClick={() => { setPendingPdf(null); if (pdfRef.current) pdfRef.current.value = ""; }}
               className="shrink-0 text-bio-text-muted hover:text-red-600"
             >
               <X className="h-4 w-4" />
@@ -145,23 +196,98 @@ export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props
         ) : (
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => pdfRef.current?.click()}
             className="flex items-center gap-2 rounded-lg border border-dashed border-card-border px-4 py-2.5 text-sm text-bio-text-muted hover:border-bio-green hover:text-bio-green"
           >
             <Upload className="h-4 w-4" /> Choose PDF
           </button>
         )}
         <input
-          ref={fileRef}
+          ref={pdfRef}
           type="file"
           accept="application/pdf"
           className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) setPendingPdf(f);
-          }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingPdf(f); }}
         />
         <p className="mt-1 text-xs text-bio-text-muted">Max 20 MB · PDF only</p>
+      </div>
+
+      {/* Video upload */}
+      <div>
+        <label className="mb-2 block text-xs font-medium text-bio-text-muted">
+          Video <span className="font-normal">(optional — embedded player shown to readers)</span>
+        </label>
+        {hasCurrentVideo ? (
+          <div className="space-y-2">
+            <video
+              src={initial.video_url!}
+              controls
+              className="w-full max-w-md rounded-lg border border-card-border"
+              style={{ maxHeight: 200 }}
+            />
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => videoRef.current?.click()}
+                className="text-xs text-bio-text-muted hover:text-bio-green"
+              >
+                Replace video
+              </button>
+              <button
+                type="button"
+                onClick={() => setRemoveVideo(true)}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Remove video
+              </button>
+            </div>
+          </div>
+        ) : pendingVideo ? (
+          <div className="flex items-center gap-2 rounded-lg border border-bio-green/30 bg-bio-mint/30 px-3 py-2 text-sm">
+            <FileVideo className="h-4 w-4 shrink-0 text-bio-green" />
+            <span className="flex-1 truncate text-bio-text">{pendingVideo.name}</span>
+            <span className="shrink-0 text-xs text-bio-text-muted">
+              {(pendingVideo.size / 1024 / 1024).toFixed(1)} MB
+            </span>
+            <button
+              type="button"
+              onClick={() => { setPendingVideo(null); if (videoRef.current) videoRef.current.value = ""; }}
+              className="shrink-0 text-bio-text-muted hover:text-red-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : removeVideo ? (
+          <div className="flex items-center gap-3 text-sm text-amber-700">
+            <span>Video will be removed on save.</span>
+            <button
+              type="button"
+              onClick={() => setRemoveVideo(false)}
+              className="text-xs text-bio-text-muted hover:text-bio-green"
+            >
+              Undo
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => videoRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-card-border px-4 py-2.5 text-sm text-bio-text-muted hover:border-bio-green hover:text-bio-green"
+          >
+            <Upload className="h-4 w-4" /> Choose video
+          </button>
+        )}
+        <input
+          ref={videoRef}
+          type="file"
+          accept="video/mp4,video/webm,video/ogg,video/quicktime"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) { setPendingVideo(f); setRemoveVideo(false); }
+          }}
+        />
+        <p className="mt-1 text-xs text-bio-text-muted">Max 100 MB · MP4, WebM, OGG, or MOV</p>
       </div>
 
       <div>
@@ -176,6 +302,35 @@ export function NewsletterEditor({ mode, initial = {}, onSave, onCancel }: Props
           placeholder={"# Heading\n\nParagraph text…\n\n## Subheading\n\nMore text…"}
         />
         <p className="mt-1 text-xs text-bio-text-muted">Use # for headings, ## for subheadings. Blank lines create paragraphs.</p>
+      </div>
+
+      {/* Audience */}
+      <div>
+        <p className="mb-1.5 text-xs font-medium text-bio-text-muted">
+          Visible to <span className="font-normal">(leave all unchecked to show everyone)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {ROLE_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full border border-card-border px-3 py-1 text-xs transition-colors hover:border-bio-green has-[:checked]:border-bio-green has-[:checked]:bg-bio-green/10 has-[:checked]:text-bio-green"
+            >
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={visibleTo.includes(opt.value)}
+                onChange={() =>
+                  setVisibleTo((prev) =>
+                    prev.includes(opt.value)
+                      ? prev.filter((r) => r !== opt.value)
+                      : [...prev, opt.value]
+                  )
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
       </div>
 
       <label className="flex items-center gap-2 text-sm">

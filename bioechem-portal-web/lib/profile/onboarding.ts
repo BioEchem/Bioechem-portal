@@ -9,10 +9,17 @@ export type OnboardingStatus = {
   missingSections: ("personal" | "school")[];
 };
 
+const ROLES_REQUIRING_ONBOARDING = new Set(["participant", "teacher"]);
+
 /** Whether an approved user must finish post-approval profile onboarding. */
 export function getOnboardingStatus(
   profile: ProfileCompletionFields,
 ): OnboardingStatus {
+  // Admins, school admins, shareholders, and industry partners skip onboarding entirely.
+  if (!ROLES_REQUIRING_ONBOARDING.has(profile.role ?? "")) {
+    return { isComplete: true, missingLabels: [], missingSections: [] };
+  }
+
   if (profile.role === "participant") {
     const status = getProfileCompletionStatus(profile);
     return {
@@ -22,6 +29,7 @@ export function getOnboardingStatus(
     };
   }
 
+  // teacher — minimum personal fields only
   const status = getProfileCompletionStatus(profile);
   const missingLabels = status.missingMinimumLabels;
 

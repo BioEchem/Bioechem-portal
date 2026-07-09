@@ -4,13 +4,13 @@ import { SiteHeader } from "@/components/brand/site-header";
 import { ProfileOnboardingForm } from "@/components/profile/profile-onboarding-form";
 import { roleRequiresPartnerSchool } from "@/lib/auth/roles";
 import { requireCompleteProfileSession } from "@/lib/auth/session";
-import { profileRowToAddress } from "@/lib/profile/address";
-import { parseEducationEntries } from "@/lib/profile/education";
-import { parseEmergencyContacts } from "@/lib/profile/emergency-contacts";
+import { addressRowToAddress } from "@/lib/profile/address";
+import { educationRowsToEntries } from "@/lib/profile/education";
+import { emergencyContactRowsToContacts } from "@/lib/profile/emergency-contacts";
 import { getOnboardingStatus } from "@/lib/profile/onboarding";
 import { splitFullName } from "@/lib/profile/name";
+import { workRowsToEntries } from "@/lib/profile/work";
 import type { CohortOption, ProfileSummaryData, SchoolOption } from "@/lib/profile/types";
-import { parseWorkEntries } from "@/lib/profile/work";
 import {
   PORTAL_COHORTS_SELECT,
   PORTAL_PROFILE_SELECT,
@@ -63,6 +63,8 @@ export default async function CompleteProfilePage() {
     }));
   }
 
+  const addr = profile.profile_addresses;
+
   return (
     <>
     <SiteHeader />
@@ -90,7 +92,7 @@ export default async function CompleteProfilePage() {
               initialLastName={lastName}
               initialMiddleName={profile.middle_name?.trim() ?? ""}
               initialAge={profile.age}
-              initialAddress={profileRowToAddress(profile)}
+              initialAddress={addressRowToAddress(addr)}
               initialPhone={profile.phone?.trim() ?? ""}
               initialGender={profile.gender?.trim() ?? ""}
               initialAvatarUrl={profile.avatar_url ?? null}
@@ -98,13 +100,13 @@ export default async function CompleteProfilePage() {
               initialSchoolId={profile.school_id}
               initialOtherSchoolName={profile.other_school_name}
               initialCohortId={profile.cohort_id}
-              initialState={profile.state?.trim() ?? ""}
-              initialSchoolCountry={profile.school_country?.trim() ?? ""}
+              initialState={addr?.reg_state?.trim() ?? ""}
+              initialSchoolCountry={addr?.school_country?.trim() ?? ""}
               initialGrade={profile.grade?.trim() ?? ""}
-              initialEducation={parseEducationEntries(profile.education_background)}
-              initialWorkHistory={parseWorkEntries(profile.work_experience)}
+              initialEducation={educationRowsToEntries(profile.profile_education ?? [])}
+              initialWorkHistory={workRowsToEntries(profile.profile_work_experience ?? [])}
               initialResumeUrl={profile.resume_url ?? null}
-              initialEmergencyContacts={parseEmergencyContacts(profile.emergency_contacts)}
+              initialEmergencyContacts={emergencyContactRowsToContacts(profile.profile_emergency_contacts ?? [])}
               schools={schools}
               cohorts={cohorts}
             />

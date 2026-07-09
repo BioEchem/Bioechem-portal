@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { emailUsersNewAnnouncement } from "@/lib/notify/user-email";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -70,6 +71,11 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Title and body are required." }, { status: 400 });
   }
 
+  const VALID_ROLES = ["participant", "teacher", "school_admin", "industry_partner", "shareholder", "bioechem_admin"];
+  const visibleTo: string[] = Array.isArray(body.visible_to)
+    ? (body.visible_to as unknown[]).filter((r): r is string => typeof r === "string" && VALID_ROLES.includes(r))
+    : [];
+
   const { data, error } = await supabase
     .from("announcements")
     .insert({
@@ -79,10 +85,34 @@ export async function POST(req: Request, { params }: Params) {
       body: content,
       is_pinned: body.isPinned === true,
       published: body.published !== false,
+      visible_to: visibleTo,
     })
-    .select("id, title, body, is_pinned, published, created_at, profiles(full_name, avatar_url)")
+    .select("id, title, body, is_pinned, published, visible_to, created_at, profiles(full_name, avatar_url)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Notify enrolled participants (fire-and-forget)
+  if (data.published) {
+    Promise.all([
+      supabase.from("cohorts").select("title").eq("id", cohortId).single(),
+      supabase
+        .from("cohort_enrollments")
+        .select("profiles(email, full_name)")
+        .eq("cohort_id", cohortId)
+        .eq("role", "participant")
+        .eq("status", "approved"),
+    ]).then(([cohortRes, enrollRes]) => {
+      const cohortName = cohortRes.data?.title ?? "your cohort";
+      const recipients = (enrollRes.data ?? []).flatMap((e) => {
+        const p = e.profiles as unknown as { email: string | null; full_name: string | null } | null;
+        return p?.email ? [{ email: p.email, name: p.full_name ?? p.email }] : [];
+      });
+      if (recipients.length > 0) {
+        emailUsersNewAnnouncement(recipients, cohortName, title, cohortId);
+      }
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ data }, { status: 201 });
 }

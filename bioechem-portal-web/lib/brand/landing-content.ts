@@ -11,10 +11,10 @@ export const HERO = {
 } as const;
 
 export const STATS: { value: string; label: string }[] = [
-  { value: "20+", label: "Partner schools" },
-  { value: "500+", label: "Students enrolled" },
-  { value: "10+", label: "STEM programs" },
-  { value: "5", label: "States reached" },
+  { value: "2+", label: "Partner schools" },
+  { value: "20+", label: "Students enrolled" },
+  { value: "2+", label: "STEM programs" },
+  { value: "1", label: "State reached" },
 ];
 
 export const ABOUT = {

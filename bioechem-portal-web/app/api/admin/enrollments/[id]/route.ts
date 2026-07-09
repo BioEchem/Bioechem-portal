@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { emailUserEnrollmentDecision } from "@/lib/notify/user-email";
 
 export async function PATCH(
   request: Request,
@@ -94,5 +96,24 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Notify the user of the enrollment decision (fire-and-forget)
+  void (async () => {
+    const db = createServiceRoleClient();
+    if (!db) return;
+    const [profileRes, cohortRes] = await Promise.all([
+      db.from("profiles").select("email, full_name").eq("id", enrollment.user_id).single(),
+      db.from("cohorts").select("title").eq("id", enrollment.cohort_id).single(),
+    ]);
+    const email = profileRes.data?.email as string | null;
+    if (!email) return;
+    const name = (profileRes.data?.full_name as string | null) ?? email;
+    const cohortName = (cohortRes.data?.title as string | null) ?? "your cohort";
+    const reason = newStatus === "rejected" && typeof body.rejectionReason === "string"
+      ? body.rejectionReason.trim() || null
+      : null;
+    emailUserEnrollmentDecision(email, name, cohortName, newStatus === "approved", reason, enrollment.cohort_id);
+  })();
+
   return NextResponse.json({ data });
 }

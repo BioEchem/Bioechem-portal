@@ -18,6 +18,12 @@ export async function PATCH(req: Request, { params }: Params) {
   if (typeof body.body    === "string") updates.body    = body.body.trim() || null;
   if (typeof body.pdf_url === "string") updates.pdf_url = body.pdf_url.trim() || null;
   if (typeof body.published === "boolean") updates.published = body.published;
+  if (Array.isArray(body.visible_to)) {
+    const VALID_ROLES = ["participant", "teacher", "school_admin", "industry_partner", "shareholder", "bioechem_admin"];
+    updates.visible_to = (body.visible_to as unknown[]).filter(
+      (r): r is string => typeof r === "string" && VALID_ROLES.includes(r)
+    );
+  }
 
   const { data, error } = await auth.supabase
     .from("newsletters")

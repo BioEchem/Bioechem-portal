@@ -1,4 +1,4 @@
-import type { WorkEntry } from "@/lib/profile/types";
+import type { ProfileWorkRow, WorkEntry } from "@/lib/profile/types";
 
 export const WORK_TYPE_OPTIONS = [
   { value: "job", label: "Employment" },
@@ -45,6 +45,24 @@ export function parseWorkEntries(value: unknown): WorkEntry[] {
     });
   }
   return result;
+}
+
+/** Convert DB rows (snake_case) to form-friendly WorkEntry (camelCase). */
+export function workRowsToEntries(rows: ProfileWorkRow[]): WorkEntry[] {
+  return [...rows]
+    .sort((a, b) => a.position - b.position)
+    .map((r) => ({
+      id: r.id,
+      company: r.company,
+      title: r.title,
+      type: r.type,
+      startMonth: r.start_month,
+      startYear: r.start_year,
+      endMonth: r.end_month,
+      endYear: r.end_year,
+      isCurrent: r.is_current,
+      description: r.description,
+    }));
 }
 
 export function emptyWorkEntry(): WorkEntry {

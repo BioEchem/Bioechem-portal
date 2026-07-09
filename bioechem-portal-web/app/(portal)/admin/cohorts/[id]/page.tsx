@@ -5,6 +5,9 @@ import { ChevronLeft, Calendar, Users, BookOpen, ClipboardList, Settings } from 
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { EnrollmentReviewTable, type ReviewableEnrollment, type ReviewerNames } from "@/components/cohorts/enrollment-review-table";
+import { CertificateUploader } from "@/components/certificates/certificate-uploader";
+import { CohortsurveysPanel } from "@/components/admin/cohort-surveys-panel";
+import { ArchiveCohortButton } from "@/components/admin/archive-cohort-button";
 import { requireSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Cohort overview" };
@@ -128,6 +131,34 @@ export default async function AdminCohortOverviewPage({
     });
   }
 
+  // Surveys for this cohort
+  type SurveyRow = { id: string; title: string; type: string; status: string; created_at: string };
+  const { data: surveysData } = await supabase
+    .from("surveys")
+    .select("id, title, type, status, created_at")
+    .eq("cohort_id", id)
+    .order("created_at", { ascending: false })
+    .returns<SurveyRow[]>();
+  const cohortSurveys = surveysData ?? [];
+
+  // Certificates
+  type CertRow = {
+    id: string;
+    title: string;
+    file_url: string;
+    filename: string | null;
+    uploaded_at: string;
+    user_id: string;
+    profiles: { full_name: string | null; email: string | null } | null;
+  };
+  const { data: certsData } = await supabase
+    .from("certificates")
+    .select("id, title, file_url, filename, uploaded_at, user_id, profiles!user_id(full_name, email)")
+    .eq("cohort_id", id)
+    .order("uploaded_at", { ascending: false })
+    .returns<CertRow[]>();
+  const certs = certsData ?? [];
+
   // Upcoming due dates (next 7 days or soonest)
   const now = new Date();
   const upcomingAssignments = assignments
@@ -163,12 +194,17 @@ export default async function AdminCohortOverviewPage({
               ? backHref.endsWith("/cohorts") ? `${schoolName ?? "School"} · Cohorts` : (schoolName ?? "Back")
               : schoolId && schoolName ? schoolName : "All cohorts"}
           </Link>
-          <Link
-            href={`/admin/cohorts/${id}/edit`}
-            className="flex items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-sm font-medium text-bio-text hover:border-bio-green hover:text-bio-green"
-          >
-            <Settings className="h-4 w-4" /> Manage settings
-          </Link>
+          <div className="flex items-center gap-2">
+            {status !== "archived" && isBioAdmin && (
+              <ArchiveCohortButton cohortId={id} cohortName={cohortName} />
+            )}
+            <Link
+              href={`/admin/cohorts/${id}/edit`}
+              className="flex items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-sm font-medium text-bio-text hover:border-bio-green hover:text-bio-green"
+            >
+              <Settings className="h-4 w-4" /> Manage settings
+            </Link>
+          </div>
         </div>
 
         {/* Cohort info + stats */}
@@ -376,6 +412,25 @@ export default async function AdminCohortOverviewPage({
             </div>
           </PortalCard>
         ) : null}
+
+        {/* Surveys */}
+        <PortalCard>
+          <CohortsurveysPanel cohortId={id} cohortName={cohortName} surveys={cohortSurveys} />
+        </PortalCard>
+
+        {/* Certificates */}
+        <PortalCard>
+          <h2 className="mb-5 text-sm font-semibold uppercase tracking-wide text-bio-green">Certificates</h2>
+          <CertificateUploader
+            cohortId={id}
+            students={approvedParticipants.map((e) => ({
+              user_id: e.user_id,
+              name: e.profiles?.full_name ?? null,
+              email: e.profiles?.email ?? null,
+            }))}
+            initialCerts={certs}
+          />
+        </PortalCard>
 
         {/* Enrollments */}
         <PortalCard>

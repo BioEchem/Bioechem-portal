@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { emailUsersNewAssignment } from "@/lib/notify/user-email";
 
 type Params = { params: Promise<{ id: string; moduleId: string }> };
 
@@ -92,18 +93,52 @@ export async function POST(req: Request, { params }: Params) {
   if (type === "assignment") {
     const dueAt = typeof body.due_at === "string" ? body.due_at || null : null;
     const maxPoints = typeof body.max_points === "number" ? body.max_points : 100;
+    const requiresGrading = body.requires_grading !== false;
+    const gradeCategory = typeof body.grade_category === "string" && ["intermediate","final"].includes(body.grade_category)
+      ? body.grade_category : "intermediate";
+    const assignmentType = typeof body.assignment_type === "string" && ["assignment","presentation","field_trip","quiz","other"].includes(body.assignment_type)
+      ? body.assignment_type : "assignment";
     const submissionType = typeof body.submission_type === "string" ? body.submission_type : "any";
 
     const { error: aErr } = await supabase.from("assignments").insert({
       module_item_id: item.id,
       cohort_id: cohortId,
       due_at: dueAt,
-      max_points: maxPoints,
+      max_points: requiresGrading ? maxPoints : null,
+      requires_grading: requiresGrading,
+      grade_category: gradeCategory,
+      assignment_type: assignmentType,
       submission_type: submissionType,
       instructions: typeof body.instructions === "string" ? body.instructions.trim() || null : null,
     });
 
-    if (aErr) return NextResponse.json({ error: aErr.message }, { status: 400 });
+    if (aErr) {
+      // Roll back the module item so no orphan is left
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: aErr.message }, { status: 400 });
+    }
+
+    // Notify enrolled participants (fire-and-forget)
+    if (item.published) {
+      Promise.all([
+        supabase.from("cohorts").select("title").eq("id", cohortId).single(),
+        supabase
+          .from("cohort_enrollments")
+          .select("profiles(email, full_name)")
+          .eq("cohort_id", cohortId)
+          .eq("role", "participant")
+          .eq("status", "approved"),
+      ]).then(([cohortRes, enrollRes]) => {
+        const cohortName = cohortRes.data?.title ?? "your cohort";
+        const recipients = (enrollRes.data ?? []).flatMap((e) => {
+          const p = e.profiles as unknown as { email: string | null; full_name: string | null } | null;
+          return p?.email ? [{ email: p.email, name: p.full_name ?? p.email }] : [];
+        });
+        if (recipients.length > 0) {
+          emailUsersNewAssignment(recipients, cohortName, title, dueAt, cohortId);
+        }
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ data: item }, { status: 201 });

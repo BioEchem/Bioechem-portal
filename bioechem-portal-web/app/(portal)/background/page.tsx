@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { ProfileBackgroundSection } from "@/components/profile/profile-background-section";
 import { PortalPage } from "@/components/portal/portal-page";
 import { requireSession } from "@/lib/auth/session";
-import { parseEducationEntries } from "@/lib/profile/education";
+import { educationRowsToEntries } from "@/lib/profile/education";
 import type { ProfileSummaryData } from "@/lib/profile/types";
-import { parseWorkEntries } from "@/lib/profile/work";
+import { workRowsToEntries } from "@/lib/profile/work";
 import { PORTAL_PROFILE_SELECT } from "@/lib/portal/profile-select";
 
 export const metadata: Metadata = {
@@ -24,8 +24,8 @@ export default async function BackgroundPage() {
       description="Your education, work history, and volunteer experience."
     >
       <ProfileBackgroundSection
-        initialEducation={parseEducationEntries(profile.education_background)}
-        initialWorkHistory={parseWorkEntries(profile.work_experience)}
+        initialEducation={educationRowsToEntries(profile.profile_education ?? [])}
+        initialWorkHistory={workRowsToEntries(profile.profile_work_experience ?? [])}
       />
     </PortalPage>
   );

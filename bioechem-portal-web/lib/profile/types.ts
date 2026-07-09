@@ -10,6 +10,7 @@ export type EmergencyContact = {
 };
 
 export type EducationEntry = {
+  id?: string;
   institution: string;
   degree?: string | null;
   fieldOfStudy?: string | null;
@@ -19,6 +20,7 @@ export type EducationEntry = {
 };
 
 export type WorkEntry = {
+  id?: string;
   company: string;
   title?: string | null;
   type?: string | null; // "job" | "volunteer" | "internship" | "freelance" | "other"
@@ -30,19 +32,60 @@ export type WorkEntry = {
   description?: string | null;
 };
 
+/** Row shape returned from the profile_addresses table (via PostgREST join). */
+export type ProfileAddressRow = {
+  street: string | null;
+  apt: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  zip: string | null;
+  reg_state: string | null;
+  school_country: string | null;
+};
+
+/** Row shape returned from profile_education (via PostgREST join). */
+export type ProfileEducationRow = {
+  id: string;
+  institution: string;
+  degree: string | null;
+  field_of_study: string | null;
+  start_year: string | null;
+  end_year: string | null;
+  is_current: boolean;
+  position: number;
+};
+
+/** Row shape returned from profile_work_experience (via PostgREST join). */
+export type ProfileWorkRow = {
+  id: string;
+  company: string;
+  title: string | null;
+  type: string | null;
+  start_month: string | null;
+  start_year: string | null;
+  end_month: string | null;
+  end_year: string | null;
+  is_current: boolean;
+  description: string | null;
+  position: number;
+};
+
+/** Row shape returned from profile_emergency_contacts (via PostgREST join). */
+export type ProfileEmergencyContactRow = {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+  position: number;
+};
+
 export type ProfileSummaryData = {
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
   middle_name: string | null;
   phone: string | null;
-  address_street: string | null;
-  address_apt: string | null;
-  address_city: string | null;
-  address_state: string | null;
-  address_country: string | null;
-  address_zip: string | null;
-  state: string | null;
   gender: string | null;
   email: string | null;
   role: string | null;
@@ -50,15 +93,17 @@ export type ProfileSummaryData = {
   school_id: string | null;
   other_school_name: string | null;
   cohort_id: string | null;
-  emergency_contacts: EmergencyContact[] | null;
   approval_status: ApprovalStatus | null;
   avatar_url: string | null;
   bio: string | null;
   grade: string | null;
-  school_country: string | null;
   resume_url: string | null;
-  education_background: EducationEntry[] | null;
-  work_experience: WorkEntry[] | null;
+  // joined tables
+  interested_in_internship: boolean;
+  profile_addresses: ProfileAddressRow | null;
+  profile_education: ProfileEducationRow[];
+  profile_work_experience: ProfileWorkRow[];
+  profile_emergency_contacts: ProfileEmergencyContactRow[];
   schools: { name: string } | { name: string }[] | null;
   cohorts: { name: string } | { name: string }[] | null;
 };
@@ -109,14 +154,20 @@ export type UpdateAvatarBody = {
   avatarUrl: string | null;
 };
 
+export type UpdateInternshipBody = {
+  section: "internship";
+  interestedInInternship: boolean;
+};
+
 export type UpdateProfileRequestBody =
   | UpdatePersonalProfileBody
   | UpdateSchoolProfileBody
   | UpdateBackgroundProfileBody
   | UpdateEmergencyContactsBody
-  | UpdateAvatarBody;
+  | UpdateAvatarBody
+  | UpdateInternshipBody;
 
 export type UpdateProfileSuccessResponse = {
   ok: true;
-  section: "personal" | "school" | "background" | "emergency_contacts" | "avatar";
+  section: "personal" | "school" | "background" | "emergency_contacts" | "avatar" | "internship";
 };

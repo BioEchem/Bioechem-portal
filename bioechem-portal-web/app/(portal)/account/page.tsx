@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ProfileAvatarSection } from "@/components/profile/profile-avatar-section";
 import { ProfileCompletionPrompt } from "@/components/profile/profile-completion-prompt";
 import { ProfileEmergencyContactsSection } from "@/components/profile/profile-emergency-contacts-section";
+import { ProfileInternshipSection } from "@/components/profile/profile-internship-section";
 import { ProfilePasswordSection } from "@/components/profile/profile-password-section";
 import { ProfilePersonalSection } from "@/components/profile/profile-personal-section";
 import { ProfileResumeSection } from "@/components/profile/profile-resume-section";
@@ -10,9 +11,9 @@ import { ProfileSchoolSection } from "@/components/profile/profile-school-sectio
 import { PortalPage } from "@/components/portal/portal-page";
 import { roleRequiresPartnerSchool } from "@/lib/auth/roles";
 import { requireSession } from "@/lib/auth/session";
-import { profileRowToAddress } from "@/lib/profile/address";
+import { addressRowToAddress } from "@/lib/profile/address";
 import { getProfileCompletionStatus } from "@/lib/profile/completion";
-import { parseEmergencyContacts } from "@/lib/profile/emergency-contacts";
+import { emergencyContactRowsToContacts } from "@/lib/profile/emergency-contacts";
 import {
   getCohortDisplayName,
   getSchoolDisplayName,
@@ -121,7 +122,7 @@ export default async function AccountPage() {
           initialLastName={lastName}
           initialMiddleName={profile.middle_name?.trim() ?? ""}
           initialAge={profile.age}
-          initialAddress={profileRowToAddress(profile)}
+          initialAddress={addressRowToAddress(profile.profile_addresses)}
           initialPhone={profile.phone?.trim() ?? ""}
           initialGender={profile.gender?.trim() ?? ""}
         />
@@ -133,24 +134,27 @@ export default async function AccountPage() {
               initialSchoolId={profile.school_id}
               initialOtherSchoolName={profile.other_school_name}
               initialCohortId={profile.cohort_id}
-              initialState={profile.state?.trim() ?? ""}
+              initialState={profile.profile_addresses?.reg_state?.trim() ?? ""}
               schoolDisplayName={getSchoolDisplayName(profile)}
               cohortDisplayName={getCohortDisplayName(profile.cohorts)}
               schools={schools}
               cohorts={cohorts}
             />
             <ProfileEmergencyContactsSection
-              initialContacts={parseEmergencyContacts(profile.emergency_contacts)}
+              initialContacts={emergencyContactRowsToContacts(profile.profile_emergency_contacts ?? [])}
             />
           </>
         ) : null}
 
         {showResume ? (
-          <ProfileResumeSection
-            userId={user.id}
-            currentResumeUrl={profile.resume_url ?? null}
-            resumeHistory={resumeHistory}
-          />
+          <>
+            <ProfileInternshipSection initialValue={profile.interested_in_internship ?? false} />
+            <ProfileResumeSection
+              userId={user.id}
+              currentResumeUrl={profile.resume_url ?? null}
+              resumeHistory={resumeHistory}
+            />
+          </>
         ) : null}
 
         <ProfilePasswordSection />

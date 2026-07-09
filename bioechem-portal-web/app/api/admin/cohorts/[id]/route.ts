@@ -46,5 +46,21 @@ export async function PATCH(
     .from("cohorts").update(updates).eq("id", id).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Replace contacts if provided in the payload
+  if (Array.isArray(body.contacts)) {
+    const { error: delErr } = await supabase.from("cohort_contacts").delete().eq("cohort_id", id);
+    if (delErr) return NextResponse.json({ error: `Contacts delete failed: ${delErr.message}` }, { status: 400 });
+
+    const contacts = (body.contacts as { name: string; email: string; title?: string }[])
+      .filter((c) => c.name?.trim() && c.email?.trim());
+    if (contacts.length > 0) {
+      const { error: insErr } = await supabase.from("cohort_contacts").insert(
+        contacts.map((c, i) => ({ cohort_id: id, name: c.name.trim(), email: c.email.trim(), title: c.title?.trim() || null, position: i }))
+      );
+      if (insErr) return NextResponse.json({ error: `Contacts insert failed: ${insErr.message}` }, { status: 400 });
+    }
+  }
+
   return NextResponse.json({ data });
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 
 import { PortalCard } from "@/components/portal/portal-page";
 import {
@@ -22,6 +23,7 @@ type AdminPortalDashboardProps = {
 
 export function AdminPortalDashboard({ user, summary }: AdminPortalDashboardProps) {
   const { welcomeSubtitle } = getRoleConfig(user.role);
+  const totalPending = summary.pendingApprovals + summary.pendingEnrollments;
 
   return (
     <DashboardShell
@@ -29,6 +31,32 @@ export function AdminPortalDashboard({ user, summary }: AdminPortalDashboardProp
       subtitle={welcomeSubtitle}
       profileFields={buildDashboardProfileFields(user)}
     >
+      {/* ── Pending-action alert banner ── */}
+      {totalPending > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 sm:flex-row sm:items-start sm:gap-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-700">Action required</p>
+            <ul className="mt-1 space-y-1 text-sm text-red-600">
+              {summary.pendingApprovals > 0 && (
+                <li>
+                  <Link href={AUTH_ROUTES.adminApprovals} className="underline hover:no-underline">
+                    {summary.pendingApprovals} user{summary.pendingApprovals !== 1 ? "s" : ""} waiting for account approval
+                  </Link>
+                </li>
+              )}
+              {summary.pendingEnrollments > 0 && (
+                <li>
+                  <Link href={AUTH_ROUTES.adminCohorts} className="underline hover:no-underline">
+                    {summary.pendingEnrollments} cohort enrollment{summary.pendingEnrollments !== 1 ? "s" : ""} pending approval
+                  </Link>
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total users" value={summary.totalUsers} />
         <StatCard label="Pending approval" value={summary.pendingApprovals} />

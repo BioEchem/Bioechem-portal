@@ -18,6 +18,19 @@ const SUBMISSION_TYPES = [
   { value: "any", label: "Text + file" },
 ];
 
+const ASSIGNMENT_TYPES = [
+  { value: "assignment", label: "Assignment" },
+  { value: "presentation", label: "Presentation" },
+  { value: "field_trip", label: "Field Trip" },
+  { value: "quiz", label: "Quiz" },
+  { value: "other", label: "Other" },
+];
+
+const GRADE_CATEGORIES = [
+  { value: "intermediate", label: "Intermediate / Periodical" },
+  { value: "final", label: "Final Grade" },
+];
+
 export function CreateItemForm({
   cohortId,
   moduleId,
@@ -32,6 +45,9 @@ export function CreateItemForm({
   const [content, setContent] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [maxPoints, setMaxPoints] = useState("100");
+  const [requiresGrading, setRequiresGrading] = useState(true);
+  const [gradeCategory, setGradeCategory] = useState("intermediate");
+  const [assignmentType, setAssignmentType] = useState("assignment");
   const [submissionType, setSubmissionType] = useState("text");
   const [dueAt, setDueAt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,6 +58,9 @@ export function CreateItemForm({
     setContent("");
     setExternalUrl("");
     setMaxPoints("100");
+    setRequiresGrading(true);
+    setGradeCategory("intermediate");
+    setAssignmentType("assignment");
     setSubmissionType("text");
     setDueAt("");
     setError(null);
@@ -61,6 +80,9 @@ export function CreateItemForm({
     if (type === "link" && externalUrl.trim()) body.external_url = externalUrl.trim();
     if (type === "assignment") {
       body.max_points = parseInt(maxPoints, 10) || 100;
+      body.requires_grading = requiresGrading;
+      body.grade_category = gradeCategory;
+      body.assignment_type = assignmentType;
       body.submission_type = submissionType;
       if (dueAt) body.due_at = new Date(dueAt).toISOString();
     }
@@ -148,37 +170,80 @@ export function CreateItemForm({
         ) : null}
 
         {type === "assignment" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-bio-text-muted">Max points</label>
+          <div className="space-y-3">
+            {/* Grading toggle */}
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-card-border p-3 hover:bg-bio-surface">
               <input
-                type="number"
-                min={1}
-                value={maxPoints}
-                onChange={(e) => setMaxPoints(e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                type="checkbox"
+                checked={requiresGrading}
+                onChange={(e) => setRequiresGrading(e.target.checked)}
+                className="h-4 w-4 accent-bio-green"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-bio-text-muted">Due date (optional)</label>
-              <input
-                type="datetime-local"
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="mb-1 block text-xs text-bio-text-muted">Submission type</label>
-              <select
-                value={submissionType}
-                onChange={(e) => setSubmissionType(e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
-              >
-                {SUBMISSION_TYPES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <div>
+                <p className="text-sm font-medium text-bio-text">Requires grading</p>
+                <p className="text-xs text-bio-text-muted">Uncheck if this is a no-grade activity — admins/teachers can still grade optionally</p>
+              </div>
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-bio-text-muted">Activity type</label>
+                <select
+                  value={assignmentType}
+                  onChange={(e) => setAssignmentType(e.target.value)}
+                  className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                >
+                  {ASSIGNMENT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-bio-text-muted">Grade category</label>
+                <select
+                  value={gradeCategory}
+                  onChange={(e) => setGradeCategory(e.target.value)}
+                  className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                >
+                  {GRADE_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-bio-text-muted">
+                  Max points {!requiresGrading && <span className="text-bio-text-muted/60">(optional)</span>}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={maxPoints}
+                  onChange={(e) => setMaxPoints(e.target.value)}
+                  disabled={!requiresGrading}
+                  className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50 disabled:opacity-40"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-bio-text-muted">Due date (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={dueAt}
+                  onChange={(e) => setDueAt(e.target.value)}
+                  className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs text-bio-text-muted">Submission type</label>
+                <select
+                  value={submissionType}
+                  onChange={(e) => setSubmissionType(e.target.value)}
+                  className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                >
+                  {SUBMISSION_TYPES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         ) : null}

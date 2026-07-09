@@ -37,11 +37,18 @@ export default async function AdminCohortEditPage({
     schools = data ?? [];
   }
 
-  const { data: cohort } = await supabase
-    .from("cohorts")
-    .select("id, name, description, school_id, status, is_active, start_date, end_date, max_enrollment, enrollment_requires_approval")
-    .eq("id", id)
-    .single();
+  const [{ data: cohort }, { data: contacts }] = await Promise.all([
+    supabase
+      .from("cohorts")
+      .select("id, name, description, school_id, status, is_active, start_date, end_date, max_enrollment, enrollment_requires_approval")
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("cohort_contacts")
+      .select("id, name, email, title, position")
+      .eq("cohort_id", id)
+      .order("position"),
+  ]);
 
   if (!cohort) notFound();
 
@@ -64,7 +71,7 @@ export default async function AdminCohortEditPage({
 
         <PortalCard>
           <AdminCohortForm
-            cohort={cohort}
+            cohort={{ ...cohort, cohort_contacts: contacts ?? [] }}
             schools={schools}
             isBioAdmin={isBioAdmin}
           />

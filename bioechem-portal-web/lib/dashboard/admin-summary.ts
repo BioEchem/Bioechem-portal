@@ -6,6 +6,7 @@ export type AdminDashboardSummary = {
   pendingApprovals: number;
   approvedUsers: number;
   rejectedUsers: number;
+  pendingEnrollments: number;
   recentPending: {
     id: string;
     fullName: string;
@@ -28,11 +29,17 @@ type ProfileStatusRow = {
 export async function loadAdminDashboardSummary(
   supabase: SupabaseServer,
 ): Promise<AdminDashboardSummary> {
-  const { data: rows } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, role, approval_status, created_at")
-    .order("created_at", { ascending: false })
-    .returns<ProfileStatusRow[]>();
+  const [{ data: rows }, { count: pendingEnrollmentCount }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, email, role, approval_status, created_at")
+      .order("created_at", { ascending: false })
+      .returns<ProfileStatusRow[]>(),
+    supabase
+      .from("cohort_enrollments")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+  ]);
 
   const users = rows ?? [];
   const pending = users.filter((user) => user.approval_status === "pending");
@@ -40,10 +47,9 @@ export async function loadAdminDashboardSummary(
   return {
     totalUsers: users.length,
     pendingApprovals: pending.length,
-    approvedUsers: users.filter((user) => user.approval_status === "approved")
-      .length,
-    rejectedUsers: users.filter((user) => user.approval_status === "rejected")
-      .length,
+    approvedUsers: users.filter((user) => user.approval_status === "approved").length,
+    rejectedUsers: users.filter((user) => user.approval_status === "rejected").length,
+    pendingEnrollments: pendingEnrollmentCount ?? 0,
     recentPending: pending.slice(0, 5).map((user) => ({
       id: user.id,
       fullName: user.full_name?.trim() || "—",

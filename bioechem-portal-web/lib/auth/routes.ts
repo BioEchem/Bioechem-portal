@@ -14,4 +14,10 @@ export const AUTH_ROUTES = {
   adminSchools: "/admin/schools",
   adminCohorts: "/admin/cohorts",
   adminContent: "/admin/content",
+  adminSurveys: "/admin/surveys",
+  adminDrive: "/admin/drive",
+  adminJobs: "/admin/jobs",
+  adminShareholderDocs: "/admin/shareholder-docs",
+  adminAnalytics: "/admin/analytics",
+  adminPoints: "/admin/points",
 } as const;

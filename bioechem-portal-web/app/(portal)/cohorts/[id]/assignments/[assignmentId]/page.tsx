@@ -35,7 +35,7 @@ export default async function AssignmentPage({
 
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id, due_at, max_points, submission_type, instructions, cohort_id, module_items(id, title, content, module_id, published)")
+    .select("id, due_at, max_points, requires_grading, grade_category, assignment_type, submission_type, instructions, cohort_id, module_items(id, title, content, module_id, published)")
     .eq("id", assignmentId)
     .single();
 
@@ -111,6 +111,18 @@ export default async function AssignmentPage({
         <PortalCard>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                {assignment.assignment_type && assignment.assignment_type !== "assignment" && (
+                  <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700 capitalize">
+                    {{ presentation: "Presentation", field_trip: "Field Trip", quiz: "Quiz", other: "Other" }[assignment.assignment_type as string] ?? assignment.assignment_type}
+                  </span>
+                )}
+                {assignment.grade_category === "final" && (
+                  <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                    Final Grade
+                  </span>
+                )}
+              </div>
               <h2 className="text-lg font-semibold text-bio-text">{item?.title}</h2>
               {assignment.due_at ? (
                 <p className={`mt-1 text-sm ${isOverdue ? "text-red-500" : "text-bio-text-muted"}`}>
@@ -121,9 +133,17 @@ export default async function AssignmentPage({
                 </p>
               ) : null}
             </div>
-            <span className="rounded-full bg-bio-mint/40 px-3 py-1 text-sm font-medium text-bio-green">
-              {assignment.max_points} pts
-            </span>
+            {assignment.requires_grading === false ? (
+              canManage ? (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500">
+                  No grading required
+                </span>
+              ) : null
+            ) : (
+              <span className="rounded-full bg-bio-mint/40 px-3 py-1 text-sm font-medium text-bio-green">
+                {assignment.max_points} pts
+              </span>
+            )}
           </div>
 
           {item?.content ? (
@@ -139,7 +159,7 @@ export default async function AssignmentPage({
         {/* Participant: submission form + grade */}
         {isParticipant ? (
           <>
-            {myGrade ? (
+            {myGrade && assignment.requires_grading !== false ? (
               <PortalCard>
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">
                   Your grade
@@ -155,17 +175,27 @@ export default async function AssignmentPage({
                   </p>
                 ) : null}
               </PortalCard>
+            ) : myGrade && assignment.requires_grading === false ? (
+              <PortalCard>
+                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-bio-green">Feedback</h3>
+                {myGrade.feedback ? (
+                  <p className="mt-2 rounded-lg bg-bio-mint/20 p-3 text-sm text-bio-text">{myGrade.feedback}</p>
+                ) : (
+                  <p className="text-sm text-bio-text-muted">No feedback yet.</p>
+                )}
+              </PortalCard>
             ) : null}
 
             <PortalCard>
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">
-                {mySubmission ? "Update submission" : "Submit assignment"}
+                {isOverdue ? "Your submission" : mySubmission ? "Submission" : "Submit assignment"}
               </h3>
               <AssignmentSubmitForm
                 cohortId={cohortId}
                 assignmentId={assignmentId}
                 submissionType={assignment.submission_type}
                 existingSubmission={mySubmission}
+                isOverdue={isOverdue}
               />
             </PortalCard>
           </>

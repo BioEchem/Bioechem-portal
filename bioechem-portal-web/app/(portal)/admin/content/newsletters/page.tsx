@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileText, FileVideo, Users } from "lucide-react";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import {
@@ -128,6 +128,11 @@ export default function AdminNewslettersPage() {
                     >
                       {row.published ? "Published" : "Draft"}
                     </span>
+                    {row.visible_to?.length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                        <Users className="h-3 w-3" /> Restricted
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-bio-text-muted">
                     {new Date(row.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
@@ -138,7 +143,17 @@ export default function AdminNewslettersPage() {
                         rel="noopener noreferrer"
                         className="ml-2 inline-flex items-center gap-1 text-bio-green hover:underline"
                       >
-                        <ExternalLink className="h-3 w-3" /> PDF
+                        <FileText className="h-3 w-3" /> PDF
+                      </a>
+                    )}
+                    {row.video_url && (
+                      <a
+                        href={row.video_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 inline-flex items-center gap-1 text-blue-500 hover:underline"
+                      >
+                        <FileVideo className="h-3 w-3" /> Video
                       </a>
                     )}
                   </p>

@@ -5,6 +5,8 @@ type RoleNavConfig = {
   includeCourses: boolean;
   includeAssignments: boolean;
   includeMessaging: boolean;
+  includeSurveys: boolean;
+  includeShareholderDocs: boolean;
 };
 
 export type RoleConfig = {
@@ -18,6 +20,8 @@ const PARTICIPANT_NAV: RoleNavConfig = {
   includeCourses: false,
   includeAssignments: true,
   includeMessaging: true,
+  includeSurveys: true,
+  includeShareholderDocs: false,
 };
 
 export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
@@ -41,6 +45,8 @@ export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
       includeCourses: false,
       includeAssignments: false,
       includeMessaging: true,
+      includeSurveys: false,
+      includeShareholderDocs: false,
     },
   },
   industry_partner: {
@@ -52,6 +58,8 @@ export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
       includeCourses: false,
       includeAssignments: false,
       includeMessaging: true,
+      includeSurveys: false,
+      includeShareholderDocs: false,
     },
   },
   shareholder: {
@@ -63,6 +71,8 @@ export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
       includeCourses: false,
       includeAssignments: false,
       includeMessaging: false,
+      includeSurveys: false,
+      includeShareholderDocs: true,
     },
   },
   bioechem_admin: {
@@ -73,7 +83,9 @@ export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
       includeCohorts: false,
       includeCourses: false,
       includeAssignments: false,
-      includeMessaging: false,
+      includeMessaging: true,
+      includeSurveys: false,
+      includeShareholderDocs: false,
     },
   },
 };
