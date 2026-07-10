@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
 
 type SubmissionRow = {
   id: string;
@@ -9,6 +9,7 @@ type SubmissionRow = {
   submission_text: string | null;
   file_url: string | null;
   filename: string | null;
+  link_url: string | null;
   submitted_at: string;
   profiles: { full_name: string | null; email: string | null } | null;
   grades: { points_earned: number | null; feedback: string | null; graded_at: string } | null;
@@ -134,6 +135,23 @@ function SubmissionCard({
                 className="text-sm text-bio-green hover:underline"
               >
                 {submission.filename ?? "Download file"}
+              </a>
+            </div>
+          ) : null}
+
+          {submission.link_url ? (
+            <div>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-bio-text-muted">
+                Link
+              </p>
+              <a
+                href={submission.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm text-bio-green hover:underline"
+              >
+                <LinkIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{submission.link_url}</span>
               </a>
             </div>
           ) : null}

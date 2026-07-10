@@ -21,6 +21,7 @@ type ItemRow = {
   published: boolean;
   created_at: string;
   assignments: { id: string; due_at: string | null; max_points: number; submission_type: string } | null;
+  quizzes: { id: string; due_at: string | null; max_points: number; questions: unknown[] } | null;
 };
 
 export default async function ModulePage({
@@ -64,7 +65,7 @@ export default async function ModulePage({
 
   let baseQuery = supabase
     .from("module_items")
-    .select("id, type, title, content, file_url, external_url, position, published, created_at, assignments(id, due_at, max_points, submission_type)")
+    .select("id, type, title, content, file_url, external_url, position, published, created_at, assignments(id, due_at, max_points, submission_type), quizzes(id, due_at, max_points, questions)")
     .eq("module_id", moduleId)
     .eq("cohort_id", cohortId)
     .order("position");
@@ -91,6 +92,24 @@ export default async function ModulePage({
     }
   }
 
+  // Fetch user's submissions for this module's quizzes
+  const quizIds = (items ?? [])
+    .filter((i) => i.type === "quiz" && i.quizzes)
+    .map((i) => i.quizzes!.id);
+
+  const quizSubmissionMap: Record<string, { submitted_at: string }> = {};
+  if (quizIds.length > 0) {
+    const { data: subs } = await supabase
+      .from("quiz_submissions")
+      .select("quiz_id, submitted_at")
+      .eq("user_id", user.id)
+      .in("quiz_id", quizIds);
+
+    for (const s of subs ?? []) {
+      quizSubmissionMap[s.quiz_id] = { submitted_at: s.submitted_at };
+    }
+  }
+
   return (
     <PortalPage title={mod.title} description={mod.description ?? undefined}>
       <div className="space-y-4">
@@ -106,6 +125,7 @@ export default async function ModulePage({
           moduleId={moduleId}
           items={items ?? []}
           submissionMap={submissionMap}
+          quizSubmissionMap={quizSubmissionMap}
           canManage={canManage}
         />
 

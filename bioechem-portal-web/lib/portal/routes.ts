@@ -12,6 +12,8 @@ export const PORTAL_ROUTES = {
   surveys: "/surveys",
   jobs: "/jobs",
   shareholderDocs: "/shareholder-docs",
+  partnerDocs: "/partner-docs",
+  partnerEvents: "/partner-events",
   rewards: "/rewards",
   certificates: "/certificates",
 } as const;

@@ -19,6 +19,7 @@ import type {
   WorkEntry,
 } from "@/lib/profile/types";
 import { emptyWorkEntry, MONTH_OPTIONS, WORK_TYPE_OPTIONS } from "@/lib/profile/work";
+import { isMonthYearOrderValid, isYearOrderValid } from "@/lib/validation/dates";
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [
@@ -523,6 +524,10 @@ export function ProfileBackgroundSection({
       setError("Institution is required.");
       return;
     }
+    if (!isYearOrderValid(eduDraft.startYear, eduDraft.isCurrent ? null : eduDraft.endYear)) {
+      setError("End year must be on or after the start year.");
+      return;
+    }
     const m = modal as { kind: "education"; index: number };
     const newEdu =
       m.index === -1
@@ -536,6 +541,17 @@ export function ProfileBackgroundSection({
     e.preventDefault();
     if (!workDraft.company.trim()) {
       setError("Company / Organization is required.");
+      return;
+    }
+    if (
+      !isMonthYearOrderValid(
+        workDraft.startMonth,
+        workDraft.startYear,
+        workDraft.isCurrent ? null : workDraft.endMonth,
+        workDraft.isCurrent ? null : workDraft.endYear,
+      )
+    ) {
+      setError("End date must be on or after the start date.");
       return;
     }
     const m = modal as { kind: "work" | "volunteer"; index: number };

@@ -33,6 +33,7 @@ import type {
 import { emptyWorkEntry, MONTH_OPTIONS, WORK_TYPE_OPTIONS } from "@/lib/profile/work";
 import { AUTH_ROUTES } from "@/lib/auth/routes";
 import { createClient } from "@/lib/supabase/client";
+import { isMonthYearOrderValid, isYearOrderValid } from "@/lib/validation/dates";
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [
@@ -274,6 +275,25 @@ export function ProfileOnboardingForm({
           setError("Each emergency contact needs a name, phone, and relationship.");
           return;
         }
+      }
+    }
+    for (const e of educationEntries) {
+      if (!isYearOrderValid(e.startYear, e.isCurrent ? null : e.endYear)) {
+        setError(`End year must be on or after start year for "${e.institution || "an education entry"}".`);
+        return;
+      }
+    }
+    for (const w of workEntries) {
+      if (
+        !isMonthYearOrderValid(
+          w.startMonth,
+          w.startYear,
+          w.isCurrent ? null : w.endMonth,
+          w.isCurrent ? null : w.endYear,
+        )
+      ) {
+        setError(`End date must be on or after start date for "${w.company || "a work entry"}".`);
+        return;
       }
     }
 
@@ -718,11 +738,10 @@ export function ProfileOnboardingForm({
                   {showClass ? (
                     <div>
                       <label htmlFor="ob-cohort" className={authLabelClassName}>
-                        Class / cohort *
+                        Class / cohort (optional)
                       </label>
                       <select
                         id="ob-cohort"
-                        required
                         disabled={pending || !schoolId}
                         value={cohortId}
                         onChange={(e) => setCohortId(e.target.value)}

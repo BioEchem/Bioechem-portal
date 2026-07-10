@@ -33,12 +33,14 @@ function formatBytes(bytes: number) {
 function DocForm({
   initial,
   onSave,
+  onSaved,
   onCancel,
   onDelete,
   mode,
 }: {
   initial?: Partial<DocRow>;
   onSave: (data: Partial<DocRow>) => Promise<DocRow>;
+  onSaved: () => void;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
   mode: "create" | "edit";
@@ -68,6 +70,7 @@ function DocForm({
         setPendingFile(null);
       }
       setStatus(null);
+      onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
       setStatus(null);
@@ -247,7 +250,7 @@ export default function AdminShareholderDocsPage() {
         {creating && (
           <PortalCard>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bio-green">New document</h2>
-            <DocForm mode="create" onSave={handleCreate} onCancel={() => setCreating(false)} />
+            <DocForm mode="create" onSave={handleCreate} onSaved={load} onCancel={() => setCreating(false)} />
           </PortalCard>
         )}
 
@@ -297,6 +300,7 @@ export default function AdminShareholderDocsPage() {
                   mode="edit"
                   initial={doc}
                   onSave={(data) => handleUpdate(doc.id, data)}
+                  onSaved={load}
                   onCancel={() => setExpandedId(null)}
                   onDelete={() => handleDelete(doc.id)}
                 />

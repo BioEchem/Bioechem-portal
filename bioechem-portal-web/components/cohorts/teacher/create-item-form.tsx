@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { QuizQuestionBuilder } from "@/components/cohorts/teacher/quiz-question-builder";
+import type { QuizQuestion } from "@/lib/quiz/types";
 
-type ItemType = "note" | "file" | "link" | "assignment";
+type ItemType = "note" | "file" | "link" | "assignment" | "quiz";
 
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
   { value: "note", label: "Note / Page" },
   { value: "link", label: "External Link" },
   { value: "assignment", label: "Assignment" },
+  { value: "quiz", label: "Quiz" },
 ];
 
 const SUBMISSION_TYPES = [
@@ -50,6 +53,7 @@ export function CreateItemForm({
   const [assignmentType, setAssignmentType] = useState("assignment");
   const [submissionType, setSubmissionType] = useState("text");
   const [dueAt, setDueAt] = useState("");
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +67,21 @@ export function CreateItemForm({
     setAssignmentType("assignment");
     setSubmissionType("text");
     setDueAt("");
+    setQuizQuestions([]);
     setError(null);
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    if (type === "quiz" && quizQuestions.length === 0) {
+      setError("Add at least one question.");
+      return;
+    }
+    if (type === "quiz" && quizQuestions.some((q) => !q.text.trim())) {
+      setError("Every question needs text.");
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -84,6 +97,11 @@ export function CreateItemForm({
       body.grade_category = gradeCategory;
       body.assignment_type = assignmentType;
       body.submission_type = submissionType;
+      if (dueAt) body.due_at = new Date(dueAt).toISOString();
+    }
+    if (type === "quiz") {
+      body.questions = quizQuestions;
+      body.instructions = content.trim() || undefined;
       if (dueAt) body.due_at = new Date(dueAt).toISOString();
     }
 
@@ -149,12 +167,16 @@ export function CreateItemForm({
           className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
         />
 
-        {(type === "note" || type === "assignment") ? (
+        {(type === "note" || type === "assignment" || type === "quiz") ? (
           <textarea
-            placeholder={type === "assignment" ? "Instructions / description (optional)" : "Content (optional)"}
+            placeholder={
+              type === "assignment" ? "Instructions / description (optional)"
+              : type === "quiz" ? "Instructions for taking the quiz (optional)"
+              : "Content (optional)"
+            }
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows={4}
+            rows={type === "quiz" ? 2 : 4}
             className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
           />
         ) : null}
@@ -167,6 +189,21 @@ export function CreateItemForm({
             onChange={(e) => setExternalUrl(e.target.value)}
             className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
           />
+        ) : null}
+
+        {type === "quiz" ? (
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-bio-text-muted">Due date (optional)</label>
+              <input
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                className="w-full max-w-xs rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+              />
+            </div>
+            <QuizQuestionBuilder questions={quizQuestions} onChange={setQuizQuestions} />
+          </div>
         ) : null}
 
         {type === "assignment" ? (

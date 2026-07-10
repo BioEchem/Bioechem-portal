@@ -7,6 +7,7 @@ import {
   Link as LinkIcon,
   File,
   ClipboardList,
+  HelpCircle,
   CheckCircle,
   Clock,
   Eye,
@@ -25,6 +26,7 @@ type ItemRow = {
   published: boolean;
   created_at: string;
   assignments: { id: string; due_at: string | null; max_points: number; submission_type: string } | null;
+  quizzes: { id: string; due_at: string | null; max_points: number; questions: unknown[] } | null;
 };
 
 type SubmissionInfo = { submitted_at: string };
@@ -34,6 +36,7 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   file: File,
   link: LinkIcon,
   assignment: ClipboardList,
+  quiz: HelpCircle,
 };
 
 function fmt(d: string) {
@@ -54,12 +57,14 @@ export function ModuleItemList({
   moduleId,
   items: initial,
   submissionMap,
+  quizSubmissionMap,
   canManage,
 }: {
   cohortId: string;
   moduleId: string;
   items: ItemRow[];
   submissionMap: Record<string, SubmissionInfo>;
+  quizSubmissionMap: Record<string, SubmissionInfo>;
   canManage: boolean;
 }) {
   const [items, setItems] = useState(initial);
@@ -113,9 +118,11 @@ export function ModuleItemList({
       {items.map((item) => {
         const sub = item.assignments ? submissionMap[item.assignments.id] : undefined;
         const isAssignment = item.type === "assignment";
+        const quizSub = item.quizzes ? quizSubmissionMap[item.quizzes.id] : undefined;
+        const isQuiz = item.type === "quiz";
 
         const inner = (
-          <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <div className="flex items-start gap-3 rounded-xl border border-card-border bg-card p-4 shadow-[var(--shadow-card)]">
             <ItemIcon type={item.type} />
 
             <div className="flex-1 min-w-0">
@@ -127,6 +134,10 @@ export function ModuleItemList({
                   </span>
                 ) : null}
               </div>
+
+              {item.type === "note" && item.content ? (
+                <p className="mt-0.5 whitespace-pre-wrap text-sm text-bio-text-muted">{item.content}</p>
+              ) : null}
 
               {isAssignment && item.assignments ? (
                 <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-bio-text-muted">
@@ -141,6 +152,25 @@ export function ModuleItemList({
                     <span className="flex items-center gap-1 text-bio-green">
                       <CheckCircle className="h-3 w-3" />
                       Submitted {fmt(sub.submitted_at)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {isQuiz && item.quizzes ? (
+                <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-bio-text-muted">
+                  <span>{item.quizzes.questions.length} question{item.quizzes.questions.length === 1 ? "" : "s"}</span>
+                  <span>{item.quizzes.max_points} pts</span>
+                  {item.quizzes.due_at ? (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Due {fmt(item.quizzes.due_at)}
+                    </span>
+                  ) : null}
+                  {quizSub ? (
+                    <span className="flex items-center gap-1 text-bio-green">
+                      <CheckCircle className="h-3 w-3" />
+                      Submitted {fmt(quizSub.submitted_at)}
                     </span>
                   ) : null}
                 </div>
@@ -184,6 +214,18 @@ export function ModuleItemList({
             <Link
               key={item.id}
               href={`/cohorts/${cohortId}/assignments/${item.assignments.id}`}
+              className="block hover:opacity-90"
+            >
+              {inner}
+            </Link>
+          );
+        }
+
+        if (isQuiz && item.quizzes) {
+          return (
+            <Link
+              key={item.id}
+              href={`/cohorts/${cohortId}/quizzes/${item.quizzes.id}`}
               className="block hover:opacity-90"
             >
               {inner}

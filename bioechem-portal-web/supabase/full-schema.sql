@@ -19,12 +19,17 @@ drop trigger  if exists profiles_validate_cohort_school on public.profiles;
 drop table if exists public.notifications          cascade;
 drop table if exists public.point_transactions     cascade;
 drop table if exists public.shareholder_documents  cascade;
+drop table if exists public.partner_documents      cascade;
+drop table if exists public.partner_events         cascade;
+drop table if exists public.partner_programs       cascade;
 drop table if exists public.job_applications       cascade;
 drop table if exists public.job_postings           cascade;
 
 -- LMS tables
 drop table if exists public.cohort_contacts        cascade;
 drop table if exists public.grades                 cascade;
+drop table if exists public.quiz_submissions       cascade;
+drop table if exists public.quizzes                cascade;
 drop table if exists public.submissions            cascade;
 drop table if exists public.assignments            cascade;
 drop table if exists public.module_items           cascade;
@@ -482,7 +487,7 @@ create table public.module_items (
   id           uuid primary key default gen_random_uuid(),
   module_id    uuid not null references public.modules(id) on delete cascade,
   cohort_id    uuid not null references public.cohorts(id) on delete cascade,
-  type         text not null check (type in ('note','assignment','file','link')),
+  type         text not null check (type in ('note','assignment','file','link','quiz')),
   title        text not null,
   content      text,
   file_url     text,
@@ -533,6 +538,7 @@ create table public.submissions (
   cohort_id       uuid not null references public.cohorts(id) on delete cascade,
   submission_text text,
   file_url        text,
+  link_url        text,
   filename        text,
   submitted_at    timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
@@ -541,6 +547,44 @@ create table public.submissions (
 
 create index submissions_assignment_id_idx on public.submissions(assignment_id);
 create index submissions_user_id_idx       on public.submissions(user_id);
+
+-- ---------------------------------------------------------------------------
+-- LMS: QUIZZES
+-- ---------------------------------------------------------------------------
+
+create table public.quizzes (
+  id             uuid primary key default gen_random_uuid(),
+  module_item_id uuid not null unique references public.module_items(id) on delete cascade,
+  cohort_id      uuid not null references public.cohorts(id) on delete cascade,
+  instructions   text,
+  due_at         timestamptz,
+  questions      jsonb not null default '[]'::jsonb,
+  max_points     numeric(6,2) not null default 0,
+  created_by     uuid not null references public.profiles(id),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create table public.quiz_submissions (
+  id             uuid primary key default gen_random_uuid(),
+  quiz_id        uuid not null references public.quizzes(id) on delete cascade,
+  user_id        uuid not null references public.profiles(id) on delete cascade,
+  cohort_id      uuid not null references public.cohorts(id) on delete cascade,
+  answers        jsonb not null default '{}'::jsonb,
+  auto_score     numeric(6,2) not null default 0,
+  manual_score   numeric(6,2),
+  needs_grading  boolean not null default false,
+  feedback       text,
+  graded_by      uuid references public.profiles(id) on delete set null,
+  graded_at      timestamptz,
+  submitted_at   timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique(quiz_id, user_id)
+);
+
+create index quizzes_cohort_id_idx on public.quizzes(cohort_id);
+create index quiz_submissions_quiz_id_idx on public.quiz_submissions(quiz_id);
+create index quiz_submissions_user_id_idx on public.quiz_submissions(user_id);
 
 -- ---------------------------------------------------------------------------
 -- LMS: GRADES
@@ -817,6 +861,49 @@ create table public.shareholder_documents (
   updated_at   timestamptz not null default now()
 );
 
+-- ── Industry partner content (documents, events, programs) ─────────────────
+create table public.partner_documents (
+  id           uuid primary key default gen_random_uuid(),
+  title        text    not null,
+  description  text,
+  category     text    not null default 'general',
+  file_url     text,
+  storage_path text,
+  file_name    text,
+  size_bytes   bigint,
+  mime_type    text,
+  published    boolean not null default true,
+  created_by   uuid    references public.profiles(id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create table public.partner_events (
+  id           uuid primary key default gen_random_uuid(),
+  title        text    not null,
+  description  text,
+  event_date   date,
+  location     text,
+  link         text,
+  published    boolean not null default true,
+  position     integer not null default 0,
+  created_by   uuid    references public.profiles(id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create table public.partner_programs (
+  id           uuid primary key default gen_random_uuid(),
+  title        text    not null,
+  description  text,
+  status       text    not null default 'active' check (status in ('active', 'upcoming', 'completed')),
+  published    boolean not null default true,
+  position     integer not null default 0,
+  created_by   uuid    references public.profiles(id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- REWARD POINTS
 -- ---------------------------------------------------------------------------
@@ -948,6 +1035,8 @@ alter table public.modules                    enable row level security;
 alter table public.module_items               enable row level security;
 alter table public.assignments                enable row level security;
 alter table public.submissions                enable row level security;
+alter table public.quizzes                    enable row level security;
+alter table public.quiz_submissions            enable row level security;
 alter table public.grades                     enable row level security;
 alter table public.announcements              enable row level security;
 alter table public.certificates               enable row level security;
@@ -963,6 +1052,9 @@ alter table public.drive_items                enable row level security;
 alter table public.job_postings               enable row level security;
 alter table public.job_applications           enable row level security;
 alter table public.shareholder_documents      enable row level security;
+alter table public.partner_documents          enable row level security;
+alter table public.partner_events             enable row level security;
+alter table public.partner_programs           enable row level security;
 alter table public.point_transactions         enable row level security;
 alter table public.notifications              enable row level security;
 
@@ -1130,6 +1222,28 @@ create policy "submissions_update_own" on public.submissions
 create policy "submissions_admin_all" on public.submissions
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
+-- ── Quizzes ────────────────────────────────────────────────────────────────
+create policy "quizzes_enrolled_select" on public.quizzes
+  for select to authenticated
+  using (public.is_enrolled_in_cohort(cohort_id) or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
+create policy "quizzes_teacher_write" on public.quizzes
+  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+create policy "quizzes_admin_all" on public.quizzes
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
+create policy "quiz_submissions_select_own" on public.quiz_submissions
+  for select to authenticated using (user_id = auth.uid());
+create policy "quiz_submissions_teacher_select" on public.quiz_submissions
+  for select to authenticated using (public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
+create policy "quiz_submissions_insert_own" on public.quiz_submissions
+  for insert to authenticated with check (user_id = auth.uid() and public.is_enrolled_in_cohort(cohort_id));
+create policy "quiz_submissions_update_own" on public.quiz_submissions
+  for update to authenticated using (user_id = auth.uid());
+create policy "quiz_submissions_teacher_grade" on public.quiz_submissions
+  for update to authenticated using (public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
+create policy "quiz_submissions_admin_all" on public.quiz_submissions
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
 -- ── Grades ─────────────────────────────────────────────────────────────────
 create policy "grades_select" on public.grades
   for select to authenticated
@@ -1249,6 +1363,25 @@ create policy "sharedocs_read" on public.shareholder_documents
 create policy "sharedocs_admin_all" on public.shareholder_documents
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
+-- ── Partner content ────────────────────────────────────────────────────────
+create policy "partnerdocs_read" on public.partner_documents
+  for select to authenticated
+  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+create policy "partnerdocs_admin_all" on public.partner_documents
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
+create policy "partnerevents_read" on public.partner_events
+  for select to authenticated
+  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+create policy "partnerevents_admin_all" on public.partner_events
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
+create policy "partnerprograms_read" on public.partner_programs
+  for select to authenticated
+  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+create policy "partnerprograms_admin_all" on public.partner_programs
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
 -- ── Reward points ──────────────────────────────────────────────────────────
 create policy "users_read_own_points" on public.point_transactions
   for select using (user_id = auth.uid());
@@ -1363,6 +1496,25 @@ create policy "sharedocs_storage_select" on storage.objects for select
   using (bucket_id = 'shareholder-docs' and (select role::text from public.profiles where id = auth.uid()) in ('shareholder', 'bioechem_admin'));
 create policy "sharedocs_storage_delete" on storage.objects for delete
   using (bucket_id = 'shareholder-docs' and public.is_bioechem_admin());
+
+-- Partner docs (private, 50 MB)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('partner-docs', 'partner-docs', false, 52428800, array[
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+])
+on conflict (id) do nothing;
+create policy "partnerdocs_storage_insert" on storage.objects for insert
+  with check (bucket_id = 'partner-docs' and public.is_bioechem_admin());
+create policy "partnerdocs_storage_select" on storage.objects for select
+  using (bucket_id = 'partner-docs' and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+create policy "partnerdocs_storage_delete" on storage.objects for delete
+  using (bucket_id = 'partner-docs' and public.is_bioechem_admin());
 
 -- ---------------------------------------------------------------------------
 -- DEV SEED — remove or adjust for production

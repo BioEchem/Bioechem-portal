@@ -34,15 +34,22 @@ export async function GET(request: Request) {
   const callerIsAdmin = await isAdmin(supabase, user.id);
   const conversationUserId = (callerIsAdmin && targetUserId) ? targetUserId : user.id;
 
-  // Upsert conversation so it always exists
+  // Look up the conversation without creating one — merely opening the
+  // messaging page (or an admin viewing a user's empty thread) shouldn't
+  // make that user appear as an active conversation until someone actually
+  // sends a message (see POST, which upserts on send).
   const { data: conv, error: convError } = await supabase
     .from("conversations")
-    .upsert({ user_id: conversationUserId }, { onConflict: "user_id" })
     .select("id, unread_by_admin, unread_by_user")
-    .single();
+    .eq("user_id", conversationUserId)
+    .maybeSingle();
 
-  if (convError || !conv) {
+  if (convError) {
     return NextResponse.json({ error: "Could not load conversation." }, { status: 500 });
+  }
+
+  if (!conv) {
+    return NextResponse.json({ data: { conversation_id: null, messages: [] } });
   }
 
   // Mark as read by viewer

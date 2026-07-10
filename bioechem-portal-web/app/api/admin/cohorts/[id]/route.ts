@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isDateOrderValid } from "@/lib/validation/dates";
 
 async function assertCanManage(supabase: Awaited<ReturnType<typeof createClient>>, cohortId: string) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,6 +41,21 @@ export async function PATCH(
   if (typeof body.status === "string" && ["draft","active","archived"].includes(body.status)) {
     updates.status = body.status;
     updates.is_active = body.status === "active";
+  }
+
+  if ("start_date" in updates || "end_date" in updates) {
+    const { data: current } = await supabase
+      .from("cohorts")
+      .select("start_date, end_date")
+      .eq("id", id)
+      .single();
+
+    const effectiveStart = "start_date" in updates ? (updates.start_date as string | null) : current?.start_date ?? null;
+    const effectiveEnd = "end_date" in updates ? (updates.end_date as string | null) : current?.end_date ?? null;
+
+    if (!isDateOrderValid(effectiveStart, effectiveEnd)) {
+      return NextResponse.json({ error: "End date must be on or after the start date." }, { status: 400 });
+    }
   }
 
   const { data, error } = await supabase

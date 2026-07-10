@@ -29,7 +29,8 @@ export async function GET(_req: Request, { params }: Params) {
   let query = supabase
     .from("module_items")
     .select(`id, type, title, content, file_url, external_url, position, published, created_at,
-      assignments(id, due_at, max_points, submission_type)`)
+      assignments(id, due_at, max_points, submission_type),
+      quizzes(id, due_at, max_points, questions)`)
     .eq("module_id", moduleId)
     .eq("cohort_id", cohortId)
     .order("position");
@@ -62,7 +63,7 @@ export async function POST(req: Request, { params }: Params) {
   const body = await req.json() as Record<string, unknown>;
   const type = typeof body.type === "string" ? body.type : "";
   const title = typeof body.title === "string" ? body.title.trim() : "";
-  if (!["note", "assignment", "file", "link"].includes(type) || !title) {
+  if (!["note", "assignment", "file", "link", "quiz"].includes(type) || !title) {
     return NextResponse.json({ error: "Valid type and title are required." }, { status: 400 });
   }
 
@@ -138,6 +139,36 @@ export async function POST(req: Request, { params }: Params) {
           emailUsersNewAssignment(recipients, cohortName, title, dueAt, cohortId);
         }
       }).catch(() => {});
+    }
+  }
+
+  // For quizzes: also create the quizzes row
+  if (type === "quiz") {
+    const dueAt = typeof body.due_at === "string" ? body.due_at || null : null;
+    const questions = Array.isArray(body.questions) ? body.questions : [];
+    const maxPoints = questions.reduce((sum: number, q: unknown) => {
+      const points = q && typeof q === "object" && "points" in q ? Number((q as { points: unknown }).points) : 0;
+      return sum + (Number.isFinite(points) ? points : 0);
+    }, 0);
+
+    if (questions.length === 0) {
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: "Add at least one question." }, { status: 400 });
+    }
+
+    const { error: qErr } = await supabase.from("quizzes").insert({
+      module_item_id: item.id,
+      cohort_id: cohortId,
+      due_at: dueAt,
+      questions,
+      max_points: maxPoints,
+      instructions: typeof body.instructions === "string" ? body.instructions.trim() || null : null,
+      created_by: user.id,
+    });
+
+    if (qErr) {
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: qErr.message }, { status: 400 });
     }
   }
 

@@ -18,6 +18,8 @@ import {
   Award,
   Layers,
   FileEdit,
+  CalendarDays,
+  Handshake,
 } from "lucide-react";
 
 import { AUTH_ROUTES } from "@/lib/auth/routes";
@@ -36,16 +38,22 @@ export type PortalNavSection = {
   items: PortalNavItem[];
 };
 
-const ACCOUNT_SECTION: PortalNavSection = {
-  title: "Account",
-  icon: User,
-  items: [
+// Shareholders and industry partners don't take courses, so certificates aren't relevant to them.
+const ROLES_WITHOUT_CERTIFICATES = new Set(["shareholder", "industry_partner"]);
+
+function buildAccountSection(role: string | null): PortalNavSection {
+  const items: PortalNavItem[] = [
     { label: "Profile", href: PORTAL_ROUTES.account, icon: User },
     { label: "Background", href: PORTAL_ROUTES.background, icon: Briefcase },
     { label: "Password", href: PORTAL_ROUTES.accountPassword, icon: KeyRound },
-    { label: "Certificates", href: PORTAL_ROUTES.certificates, icon: Award },
-  ],
-};
+  ];
+
+  if (!ROLES_WITHOUT_CERTIFICATES.has(role ?? "")) {
+    items.push({ label: "Certificates", href: PORTAL_ROUTES.certificates, icon: Award });
+  }
+
+  return { title: "Account", icon: User, items };
+}
 
 const ADMIN_MANAGE_SECTION: PortalNavSection = {
   title: "Manage",
@@ -66,6 +74,10 @@ const ADMIN_CONTENT_SECTION: PortalNavSection = {
     { label: "Website Content", href: AUTH_ROUTES.adminContent, icon: Newspaper },
     { label: "Drive", href: AUTH_ROUTES.adminDrive, icon: FolderOpen },
     { label: "Messages", href: PORTAL_ROUTES.messaging, icon: MessageSquare },
+    { label: "Shareholder Documents", href: AUTH_ROUTES.adminShareholderDocs, icon: FileStack },
+    { label: "Partner Documents", href: AUTH_ROUTES.adminPartnerDocs, icon: FileStack },
+    { label: "Partner Events", href: AUTH_ROUTES.adminPartnerEvents, icon: CalendarDays },
+    { label: "Partner Programs", href: AUTH_ROUTES.adminPartnerPrograms, icon: Handshake },
   ],
 };
 
@@ -143,6 +155,19 @@ function buildPortalItems(role: string | null): PortalNavItem[] {
     });
   }
 
+  if (nav.includePartnerContent) {
+    items.push({
+      label: "Documents",
+      href: PORTAL_ROUTES.partnerDocs,
+      icon: FileStack,
+    });
+    items.push({
+      label: "Events",
+      href: PORTAL_ROUTES.partnerEvents,
+      icon: CalendarDays,
+    });
+  }
+
   return items;
 }
 
@@ -167,7 +192,7 @@ export function getPortalNavSections(role: string | null): PortalNavSection[] {
     sections.push(SCHOOL_ADMIN_SECTION);
   }
 
-  sections.push(ACCOUNT_SECTION);
+  sections.push(buildAccountSection(role));
   sections.push(WEBSITE_SECTION);
   return sections;
 }

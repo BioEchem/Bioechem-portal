@@ -13,6 +13,8 @@ import type { SessionProfile } from "@/lib/auth/session";
 import { requireSession } from "@/lib/auth/session";
 import { loadAdminDashboardSummary } from "@/lib/dashboard/admin-summary";
 import { loadSchoolAdminDashboard } from "@/lib/dashboard/school-admin-data";
+import { loadShareholderDashboardData } from "@/lib/dashboard/shareholder-data";
+import { loadPartnerDashboardData } from "@/lib/dashboard/partner-data";
 import {
   buildDashboardUserContext,
   type DashboardProfileRow,
@@ -24,7 +26,7 @@ import {
   type ProfileCompletionFields,
 } from "@/lib/profile/completion";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { getDisplayName } from "@/lib/profile/display";
+import { getCohortDisplayName, getDisplayName } from "@/lib/profile/display";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -196,29 +198,48 @@ export default async function DashboardPage({
   }
 
   if (role === "industry_partner") {
+    const partnerData = await loadPartnerDashboardData(dataClient);
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
         {adminBanner}
-        <PartnerDashboard user={userContext} />
+        <PartnerDashboard user={userContext} data={partnerData} />
       </PortalPage>
     );
   }
 
   if (role === "shareholder") {
+    const shareholderData = await loadShareholderDashboardData(
+      dataClient,
+      createServiceRoleClient(),
+    );
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
         {adminBanner}
-        <ShareholderDashboard user={userContext} />
+        <ShareholderDashboard user={userContext} data={shareholderData} />
       </PortalPage>
     );
   }
 
   const profileCompletion = getProfileCompletionStatus(activeProfile);
 
+  const { data: pendingEnrollmentRows } = await dataClient
+    .from("cohort_enrollments")
+    .select("cohorts(name)")
+    .eq("user_id", targetUserId)
+    .eq("status", "pending");
+
+  const pendingCohortNames = (pendingEnrollmentRows ?? [])
+    .map((row) => getCohortDisplayName(row.cohorts))
+    .filter((name): name is string => !!name);
+
   return (
     <PortalPage title="Dashboard" description={dashboardDescription}>
       {adminBanner}
-      <ParticipantDashboard user={userContext} profileCompletion={profileCompletion} />
+      <ParticipantDashboard
+        user={userContext}
+        profileCompletion={profileCompletion}
+        pendingCohortNames={pendingCohortNames}
+      />
     </PortalPage>
   );
 }

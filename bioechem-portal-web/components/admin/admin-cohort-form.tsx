@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
 import { authInputClassName, authLabelClassName } from "@/components/auth/form-styles";
+import { isDateOrderValid } from "@/lib/validation/dates";
 
 type Cohort = {
   id: string;
@@ -71,6 +72,10 @@ export function AdminCohortForm({ cohort, schools, isBioAdmin, presetSchoolId }:
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setError("Name is required."); return; }
+    if (!isDateOrderValid(startDate, endDate)) {
+      setError("End date must be on or after the start date.");
+      return;
+    }
     setError(null);
     setPending(true);
 

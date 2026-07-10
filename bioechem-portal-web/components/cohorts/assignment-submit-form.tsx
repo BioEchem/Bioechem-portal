@@ -2,13 +2,17 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, CheckCircle, FileText, RotateCcw } from "lucide-react";
+import { Upload, CheckCircle, FileText, Link as LinkIcon, RotateCcw } from "lucide-react";
+
+const ACCEPTED_FILE_TYPES =
+  ".pdf,.doc,.docx,.ppt,.pptx,.key,.odp,.xls,.xlsx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi,.webm,.mkv";
 
 type ExistingSubmission = {
   id: string;
   submission_text: string | null;
   file_url: string | null;
   filename: string | null;
+  link_url: string | null;
   submitted_at: string;
 } | null;
 
@@ -29,6 +33,7 @@ export function AssignmentSubmitForm({
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(existingSubmission?.submission_text ?? "");
   const [file, setFile] = useState<File | null>(null);
+  const [link, setLink] = useState(existingSubmission?.link_url ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -64,6 +69,7 @@ export function AssignmentSubmitForm({
       const body: Record<string, unknown> = {};
       if (isText) body.submission_text = text.trim() || null;
       if (isFile && fileUrl) { body.file_url = fileUrl; body.filename = filename; }
+      if (isFile && link.trim()) body.link_url = link.trim();
 
       const res = await fetch(`/api/cohorts/${cohortId}/assignments/${assignmentId}/submit`, {
         method: "POST",
@@ -111,6 +117,17 @@ export function AssignmentSubmitForm({
               >
                 <FileText className="h-4 w-4" />
                 {existingSubmission.filename}
+              </a>
+            )}
+            {existingSubmission.link_url && (
+              <a
+                href={existingSubmission.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-bio-green hover:underline"
+              >
+                <LinkIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{existingSubmission.link_url}</span>
               </a>
             )}
           </>
@@ -204,13 +221,38 @@ export function AssignmentSubmitForm({
             <p className="text-sm text-bio-text-muted">
               {file ? file.name : "Click to choose a file"}
             </p>
+            <p className="text-xs text-bio-text-muted/70">
+              Documents, PDFs, presentations, spreadsheets, images, or video (max 50 MB)
+            </p>
           </div>
           <input
             ref={fileRef}
             type="file"
+            accept={ACCEPTED_FILE_TYPES}
             className="hidden"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
+        </div>
+      ) : null}
+
+      {isFile ? (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-bio-text-muted uppercase tracking-wide">
+            Link <span className="font-normal normal-case text-bio-text-muted/70">(optional — Google Drive, Slides, YouTube, etc.)</span>
+          </label>
+          <div className="flex items-center gap-2 rounded-lg border border-card-border bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-bio-green/50">
+            <LinkIcon className="h-4 w-4 shrink-0 text-bio-text-muted" />
+            <input
+              type="url"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://…"
+              className="w-full bg-transparent text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none"
+            />
+          </div>
+          <p className="mt-1 text-xs text-bio-text-muted/70">
+            Use this for large video files or hosted presentations instead of uploading.
+          </p>
         </div>
       ) : null}
 

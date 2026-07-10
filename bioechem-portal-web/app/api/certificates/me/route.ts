@@ -3,7 +3,15 @@ import { requireSession } from "@/lib/auth/session";
 
 // GET /api/certificates/me — signed-in user's own certificates
 export async function GET() {
-  const { supabase, user } = await requireSession({ requireApproved: true });
+  const { supabase, user, profile } = await requireSession({
+    requireApproved: true,
+    profileSelect: "role",
+  });
+
+  // Shareholders and industry partners don't take courses, so certificates don't apply to them
+  if (profile.role === "shareholder" || profile.role === "industry_partner") {
+    return NextResponse.json({ error: "Certificates are not available for this role." }, { status: 403 });
+  }
 
   const { data, error } = await supabase
     .from("certificates")

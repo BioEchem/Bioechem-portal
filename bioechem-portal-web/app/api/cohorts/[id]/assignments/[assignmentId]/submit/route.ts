@@ -26,9 +26,18 @@ export async function POST(req: Request, { params }: Params) {
   const submissionText = typeof body.submission_text === "string" ? body.submission_text.trim() || null : null;
   const fileUrl = typeof body.file_url === "string" ? body.file_url.trim() || null : null;
   const filename = typeof body.filename === "string" ? body.filename.trim() || null : null;
+  const linkUrl = typeof body.link_url === "string" ? body.link_url.trim() || null : null;
 
-  if (!submissionText && !fileUrl) {
-    return NextResponse.json({ error: "Provide text or a file." }, { status: 400 });
+  if (linkUrl) {
+    try {
+      new URL(linkUrl);
+    } catch {
+      return NextResponse.json({ error: "Enter a valid link (including https://)." }, { status: 400 });
+    }
+  }
+
+  if (!submissionText && !fileUrl && !linkUrl) {
+    return NextResponse.json({ error: "Provide text, a file, or a link." }, { status: 400 });
   }
 
   const now = new Date().toISOString();
@@ -44,7 +53,7 @@ export async function POST(req: Request, { params }: Params) {
   if (existing) {
     const { data, error } = await supabase
       .from("submissions")
-      .update({ submission_text: submissionText, file_url: fileUrl, filename, updated_at: now })
+      .update({ submission_text: submissionText, file_url: fileUrl, filename, link_url: linkUrl, updated_at: now })
       .eq("id", existing.id)
       .select()
       .single();
@@ -61,6 +70,7 @@ export async function POST(req: Request, { params }: Params) {
       submission_text: submissionText,
       file_url: fileUrl,
       filename,
+      link_url: linkUrl,
     })
     .select()
     .single();

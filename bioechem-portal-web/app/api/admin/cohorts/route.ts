@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isDateOrderValid } from "@/lib/validation/dates";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -67,14 +68,20 @@ export async function POST(request: Request) {
   const maxEnrollment = typeof body.maxEnrollment === "number" && body.maxEnrollment > 0
     ? body.maxEnrollment : null;
 
+  const startDate = typeof body.startDate === "string" ? body.startDate || null : null;
+  const endDate = typeof body.endDate === "string" ? body.endDate || null : null;
+  if (!isDateOrderValid(startDate, endDate)) {
+    return NextResponse.json({ error: "End date must be on or after the start date." }, { status: 400 });
+  }
+
   const { data, error } = await supabase
     .from("cohorts")
     .insert({
       name,
       school_id: schoolId,
       description: typeof body.description === "string" ? body.description.trim() || null : null,
-      start_date: typeof body.startDate === "string" ? body.startDate || null : null,
-      end_date: typeof body.endDate === "string" ? body.endDate || null : null,
+      start_date: startDate,
+      end_date: endDate,
       max_enrollment: maxEnrollment,
       enrollment_requires_approval: body.enrollmentRequiresApproval === true,
       status: typeof body.status === "string" ? body.status : "active",

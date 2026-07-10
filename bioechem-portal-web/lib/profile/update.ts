@@ -1,10 +1,12 @@
 import { roleAllowsCohortOnSignup, roleRequiresPartnerSchool } from "@/lib/auth/roles";
+import { enrollUserInCohort } from "@/lib/cohorts/enroll";
 import {
   hasRequiredAddress,
   normalizeAddressInput,
 } from "@/lib/profile/address";
 import { isValidGender } from "@/lib/profile/gender";
 import { buildFullName } from "@/lib/profile/name";
+import { isMonthYearOrderValid, isYearOrderValid } from "@/lib/validation/dates";
 import type {
   EducationEntry,
   EmergencyContact,
@@ -15,6 +17,7 @@ import type {
   UpdateSchoolProfileBody,
   WorkEntry,
 } from "@/lib/profile/types";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import type { SupabaseServer } from "@/lib/supabase/types";
 
 export type UpdateProfileResult =
@@ -251,6 +254,24 @@ export async function updateOwnProfile(
   }
 
   if (input.section === "background") {
+    for (const e of input.education ?? []) {
+      if (!isYearOrderValid(e.startYear, e.isCurrent ? null : e.endYear)) {
+        return { ok: false, message: `End year must be on or after start year for "${e.institution}".`, status: 400 };
+      }
+    }
+    for (const w of input.workHistory ?? []) {
+      if (
+        !isMonthYearOrderValid(
+          w.startMonth,
+          w.startYear,
+          w.isCurrent ? null : w.endMonth,
+          w.isCurrent ? null : w.endYear,
+        )
+      ) {
+        return { ok: false, message: `End date must be on or after start date for "${w.company}".`, status: 400 };
+      }
+    }
+
     // Update resume_url on profiles
     if ("resumeUrl" in input) {
       const { error } = await supabase
@@ -325,6 +346,33 @@ export async function updateOwnProfile(
     cohortId = null;
   } else if (schoolId && !roleAllowsCohortOnSignup(role)) {
     cohortId = null;
+  }
+
+  // Cohort selection is optional. When provided, enroll the user first
+  // (creating/reactivating a real cohort_enrollments row so they actually get
+  // cohort access) before persisting profiles.cohort_id — kept in sync for
+  // display/rostering (dashboard label, school-admin cohort counts) — so we
+  // don't label the profile with a cohort the enrollment attempt failed for.
+  if (cohortId && roleAllowsCohortOnSignup(role)) {
+    const admin = createServiceRoleClient();
+    if (!admin) return { ok: false, message: "Server misconfiguration.", status: 400 };
+
+    const { data: who } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", userId)
+      .single();
+
+    const enrollResult = await enrollUserInCohort(
+      supabase,
+      admin,
+      userId,
+      role as "participant" | "teacher",
+      cohortId,
+      who?.full_name?.trim() || who?.email || "A user",
+    );
+
+    if (!enrollResult.ok) return { ok: false, message: enrollResult.message, status: 400 };
   }
 
   const { error: profErr } = await supabase

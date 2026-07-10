@@ -16,6 +16,7 @@ type SubmissionRow = {
   submission_text: string | null;
   file_url: string | null;
   filename: string | null;
+  link_url: string | null;
   submitted_at: string;
   profiles: { full_name: string | null; email: string | null } | null;
   grades: { points_earned: number | null; feedback: string | null; graded_at: string } | null;
@@ -61,11 +62,11 @@ export default async function AssignmentPage({
   if (!canManage && !item?.published) notFound();
 
   // Participant: fetch own submission
-  let mySubmission: { id: string; submission_text: string | null; file_url: string | null; filename: string | null; submitted_at: string } | null = null;
+  let mySubmission: { id: string; submission_text: string | null; file_url: string | null; filename: string | null; link_url: string | null; submitted_at: string } | null = null;
   if (isParticipant) {
     const { data } = await supabase
       .from("submissions")
-      .select("id, submission_text, file_url, filename, submitted_at")
+      .select("id, submission_text, file_url, filename, link_url, submitted_at")
       .eq("assignment_id", assignmentId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -88,7 +89,7 @@ export default async function AssignmentPage({
   if (canManage) {
     const { data } = await supabase
       .from("submissions")
-      .select("id, user_id, submission_text, file_url, filename, submitted_at, profiles(full_name, email), grades(points_earned, feedback, graded_at)")
+      .select("id, user_id, submission_text, file_url, filename, link_url, submitted_at, profiles(full_name, email), grades(points_earned, feedback, graded_at)")
       .eq("assignment_id", assignmentId)
       .order("submitted_at")
       .returns<SubmissionRow[]>();
