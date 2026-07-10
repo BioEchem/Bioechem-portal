@@ -8,7 +8,17 @@ async function sendEmailAlert(senderName: string, messagePreview: string) {
   const pass = process.env.SMTP_PASS;
   const adminEmail = process.env.ADMIN_EMAIL;
 
-  if (!host || !user || !pass || !adminEmail) return;
+  if (!host || !user || !pass || !adminEmail) {
+    console.warn(
+      `[admin-message-alert] Skipped sending — missing ${[
+        !host && "SMTP_HOST",
+        !user && "SMTP_USER",
+        !pass && "SMTP_PASS",
+        !adminEmail && "ADMIN_EMAIL",
+      ].filter(Boolean).join(", ")}.`,
+    );
+    return;
+  }
 
   const portalUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://portal.bioechem.com";
 

@@ -27,7 +27,19 @@ export async function PATCH(req: Request, { params }: Params) {
   if (typeof body.content === "string") itemUpdates.content = body.content.trim() || null;
   if (typeof body.fileUrl === "string") itemUpdates.file_url = body.fileUrl.trim() || null;
   if (typeof body.externalUrl === "string") itemUpdates.external_url = body.externalUrl.trim() || null;
-  if (typeof body.published === "boolean") itemUpdates.published = body.published;
+  if (typeof body.published === "boolean") {
+    if (body.published) {
+      const { data: mod } = await supabase
+        .from("modules").select("published").eq("id", moduleId).eq("cohort_id", cohortId).maybeSingle();
+      if (!mod?.published) {
+        return NextResponse.json(
+          { error: "Publish the module before publishing items inside it." },
+          { status: 400 },
+        );
+      }
+    }
+    itemUpdates.published = body.published;
+  }
   if (typeof body.position === "number") itemUpdates.position = body.position;
 
   const { data, error } = await supabase

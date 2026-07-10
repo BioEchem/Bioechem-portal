@@ -84,11 +84,13 @@ function AssignmentsTabContent({
   assignments,
   cohortId,
   backHref,
+  canManage,
 }: {
   assignments: AssignmentRow[];
   cohortId: string;
   userId: string;
   backHref?: string;
+  canManage: boolean;
 }) {
   const now = new Date();
   const hasSubmission = (a: AssignmentRow) => Array.isArray(a.submissions) ? a.submissions.length > 0 : !!a.submissions;
@@ -124,24 +126,26 @@ function AssignmentsTabContent({
                   <p className="text-xs mt-0.5 text-bio-text-muted">No due date</p>
                 )}
               </div>
-              <div className="shrink-0">
-                {submitted ? (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                    Submitted
-                  </span>
-                ) : overdue ? (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
-                    Overdue
-                  </span>
-                ) : (
-                  <Link
-                    href={href}
-                    className="rounded-full bg-bio-green/10 px-2 py-0.5 text-xs font-medium text-bio-green hover:bg-bio-green/20"
-                  >
-                    Submit
-                  </Link>
-                )}
-              </div>
+              {!canManage ? (
+                <div className="shrink-0">
+                  {submitted ? (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      Submitted
+                    </span>
+                  ) : overdue ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                      Overdue
+                    </span>
+                  ) : (
+                    <Link
+                      href={href}
+                      className="rounded-full bg-bio-green/10 px-2 py-0.5 text-xs font-medium text-bio-green hover:bg-bio-green/20"
+                    >
+                      Submit
+                    </Link>
+                  )}
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -691,6 +695,7 @@ export default async function CohortHomePage({
             cohortId={cohortId}
             userId={user.id}
             backHref={backHref ?? undefined}
+            canManage={canManage}
           />
 
         ) : tab === "surveys" && canViewContent ? (

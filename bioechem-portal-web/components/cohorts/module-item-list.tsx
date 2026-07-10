@@ -98,11 +98,14 @@ export function ModuleItemList({
         body: JSON.stringify({ published: !item.published }),
       },
     );
-    if (res.ok) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, published: !i.published } : i)),
-      );
+    if (!res.ok) {
+      const json = await res.json().catch(() => null) as { error?: string } | null;
+      alert(json?.error ?? "Failed to update.");
+      return;
     }
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, published: !i.published } : i)),
+    );
   }
 
   if (items.length === 0) {

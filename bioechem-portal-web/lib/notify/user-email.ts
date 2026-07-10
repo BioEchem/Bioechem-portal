@@ -17,7 +17,17 @@ async function sendUserEmail({
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
-  if (!host || !user || !pass || !to) return;
+  if (!to) return;
+  if (!host || !user || !pass) {
+    console.warn(
+      `[user-email] Skipped sending "${subject}" to ${to} — SMTP is not configured (missing ${[
+        !host && "SMTP_HOST",
+        !user && "SMTP_USER",
+        !pass && "SMTP_PASS",
+      ].filter(Boolean).join(", ")}).`,
+    );
+    return;
+  }
 
   const transporter = nodemailer.createTransport({
     host,
@@ -148,6 +158,68 @@ export function emailUsersNewAssignment(
         </a>
       `),
     }).catch((err) => console.error("[user-email] assignment:", err));
+  }
+}
+
+/** Sent to all enrolled participants when a new quiz is posted. */
+export function emailUsersNewQuiz(
+  recipients: { email: string; name: string }[],
+  cohortName: string,
+  quizTitle: string,
+  dueAt: string | null,
+  cohortId: string,
+) {
+  const dueStr = dueAt
+    ? `Due: ${new Date(dueAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`
+    : "No due date";
+
+  for (const { email, name } of recipients) {
+    sendUserEmail({
+      to: email,
+      subject: `New quiz in ${cohortName}: ${quizTitle}`,
+      html: baseWrapper(`
+        <h2 style="margin:0 0 8px;font-size:18px">New quiz posted</h2>
+        <p style="margin:0 0 4px;color:#555;font-size:14px">Hi ${name},</p>
+        <p style="margin:0 0 8px;color:#555;font-size:14px;line-height:1.6">
+          A new quiz has been posted in <strong>${cohortName}</strong>:
+        </p>
+        <div style="background:#f5f9f5;border-left:3px solid #2e7d32;padding:12px 16px;border-radius:4px;margin-bottom:20px">
+          <p style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1a1a1a">${quizTitle}</p>
+          <p style="margin:0;font-size:13px;color:#666">${dueStr}</p>
+        </div>
+        <a href="${portalUrl()}/cohorts/${cohortId}?tab=modules"
+           style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600">
+          View quiz →
+        </a>
+      `),
+    }).catch((err) => console.error("[user-email] quiz:", err));
+  }
+}
+
+/** Sent to all enrolled participants when a new note/file/link item is added to a module. */
+export function emailUsersNewModuleItem(
+  recipients: { email: string; name: string }[],
+  cohortName: string,
+  itemTypeLabel: string,
+  itemTitle: string,
+  cohortId: string,
+) {
+  for (const { email, name } of recipients) {
+    sendUserEmail({
+      to: email,
+      subject: `New ${itemTypeLabel} in ${cohortName}: ${itemTitle}`,
+      html: baseWrapper(`
+        <h2 style="margin:0 0 8px;font-size:18px">New content available</h2>
+        <p style="margin:0 0 4px;color:#555;font-size:14px">Hi ${name},</p>
+        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.6">
+          A new ${itemTypeLabel} has been added in <strong>${cohortName}</strong>: <strong>${itemTitle}</strong>
+        </p>
+        <a href="${portalUrl()}/cohorts/${cohortId}?tab=modules"
+           style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600">
+          View content →
+        </a>
+      `),
+    }).catch((err) => console.error("[user-email] module item:", err));
   }
 }
 

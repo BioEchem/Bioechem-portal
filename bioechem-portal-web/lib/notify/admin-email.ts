@@ -8,7 +8,17 @@ async function sendAdminEmail({ subject, html }: { subject: string; html: string
   const pass = process.env.SMTP_PASS;
   const adminEmail = process.env.ADMIN_EMAIL;
 
-  if (!host || !user || !pass || !adminEmail) return;
+  if (!host || !user || !pass || !adminEmail) {
+    console.warn(
+      `[admin-email] Skipped sending "${subject}" — missing ${[
+        !host && "SMTP_HOST",
+        !user && "SMTP_USER",
+        !pass && "SMTP_PASS",
+        !adminEmail && "ADMIN_EMAIL",
+      ].filter(Boolean).join(", ")}.`,
+    );
+    return;
+  }
 
   const transporter = nodemailer.createTransport({
     host,
