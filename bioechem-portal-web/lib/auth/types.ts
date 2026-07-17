@@ -25,6 +25,8 @@ export type SignupRole =
   | "shareholder"
   | "bioechem_admin";
 
+export type PartnerType = "industry" | "government";
+
 export type SignupRequestBody = {
   email: string;
   password: string;
@@ -35,6 +37,7 @@ export type SignupRequestBody = {
   otherSchoolName?: string | null;
   cohortId?: string | null;
   age?: number | null;
+  partnerType?: PartnerType | null;
 };
 
 export type SignupSuccessResponse = {

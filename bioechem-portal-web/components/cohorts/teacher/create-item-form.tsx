@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { FileText, Plus, Upload, X } from "lucide-react";
 import { QuizQuestionBuilder } from "@/components/cohorts/teacher/quiz-question-builder";
 import type { QuizQuestion } from "@/lib/quiz/types";
 
@@ -10,10 +10,14 @@ type ItemType = "note" | "file" | "link" | "assignment" | "quiz";
 
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
   { value: "note", label: "Note / Page" },
+  { value: "file", label: "File / Slides" },
   { value: "link", label: "External Link" },
   { value: "assignment", label: "Assignment" },
   { value: "quiz", label: "Quiz" },
 ];
+
+// Types that can carry an uploaded file (class slides, a PDF, assignment instructions, etc.)
+const UPLOADABLE_TYPES: ItemType[] = ["note", "file", "assignment"];
 
 const SUBMISSION_TYPES = [
   { value: "text", label: "Text response" },
@@ -54,8 +58,10 @@ export function CreateItemForm({
   const [submissionType, setSubmissionType] = useState("text");
   const [dueAt, setDueAt] = useState("");
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function reset() {
     setTitle("");
@@ -68,6 +74,7 @@ export function CreateItemForm({
     setSubmissionType("text");
     setDueAt("");
     setQuizQuestions([]);
+    setPendingFile(null);
     setError(null);
   }
 
@@ -80,6 +87,10 @@ export function CreateItemForm({
     }
     if (type === "quiz" && quizQuestions.some((q) => !q.text.trim())) {
       setError("Every question needs text.");
+      return;
+    }
+    if (type === "file" && !pendingFile) {
+      setError("Choose a file to upload.");
       return;
     }
     setLoading(true);
@@ -111,8 +122,24 @@ export function CreateItemForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json() as { error?: string };
+      const json = await res.json() as { data?: { id: string }; error?: string };
       if (!res.ok) { setError(json.error ?? "Failed to create."); return; }
+
+      if (pendingFile && json.data?.id) {
+        const fd = new FormData();
+        fd.append("file", pendingFile);
+        const uploadRes = await fetch(
+          `/api/cohorts/${cohortId}/modules/${moduleId}/items/${json.data.id}/upload`,
+          { method: "POST", body: fd },
+        );
+        if (!uploadRes.ok) {
+          const uploadJson = await uploadRes.json() as { error?: string };
+          setError(`Item created, but file upload failed: ${uploadJson.error ?? "unknown error"}`);
+          router.refresh();
+          return;
+        }
+      }
+
       reset();
       setOpen(false);
       router.refresh();
@@ -189,6 +216,44 @@ export function CreateItemForm({
             onChange={(e) => setExternalUrl(e.target.value)}
             className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
           />
+        ) : null}
+
+        {UPLOADABLE_TYPES.includes(type) ? (
+          <div>
+            <label className="mb-1.5 block text-xs text-bio-text-muted">
+              {type === "file"
+                ? "File (slides, PDF, etc.)"
+                : type === "assignment"
+                  ? "Attach instructions file (optional)"
+                  : "Attach a file (optional)"}
+            </label>
+            {pendingFile ? (
+              <div className="flex items-center gap-2 rounded-lg border border-bio-green/30 bg-bio-mint/30 px-3 py-2 text-sm">
+                <FileText className="h-4 w-4 shrink-0 text-bio-green" />
+                <span className="flex-1 truncate">{pendingFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ""; }}
+                >
+                  <X className="h-4 w-4 text-bio-text-muted hover:text-red-600" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg border border-dashed border-card-border px-4 py-2.5 text-sm text-bio-text-muted hover:border-bio-green hover:text-bio-green"
+              >
+                <Upload className="h-4 w-4" /> Choose file
+              </button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingFile(f); }}
+            />
+          </div>
         ) : null}
 
         {type === "quiz" ? (

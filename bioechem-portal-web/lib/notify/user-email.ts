@@ -380,6 +380,29 @@ export function emailShareholdersNewDocument(
   }
 }
 
+/** Sent to shareholders when admin sends an announcement (all or one specific shareholder). */
+export function emailShareholdersNewAnnouncement(
+  recipients: { email: string; name: string }[],
+  title: string,
+  body: string,
+) {
+  for (const { email, name } of recipients) {
+    sendUserEmail({
+      to: email,
+      subject: `BioEChem: ${title}`,
+      html: baseWrapper(`
+        <h2 style="margin:0 0 8px;font-size:18px">${title}</h2>
+        <p style="margin:0 0 4px;color:#555;font-size:14px">Hi ${name},</p>
+        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.6;white-space:pre-wrap">${body}</p>
+        <a href="${portalUrl()}/shareholder-docs?tab=announcements"
+           style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600">
+          View in portal →
+        </a>
+      `),
+    }).catch((err) => console.error("[user-email] shareholder announcement:", err));
+  }
+}
+
 /** Sent to industry partners when admin sends an announcement (all, by type, or to one partner). */
 export function emailPartnersNewAnnouncement(
   recipients: { email: string; name: string }[],

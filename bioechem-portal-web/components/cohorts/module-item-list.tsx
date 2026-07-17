@@ -142,6 +142,18 @@ export function ModuleItemList({
                 <p className="mt-0.5 whitespace-pre-wrap text-sm text-bio-text-muted">{item.content}</p>
               ) : null}
 
+              {item.type === "note" && item.file_url ? (
+                <a
+                  href={item.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-bio-green hover:underline"
+                >
+                  <File className="h-3 w-3" /> Attached file
+                </a>
+              ) : null}
+
               {isAssignment && item.assignments ? (
                 <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-bio-text-muted">
                   <span>{item.assignments.max_points} pts</span>

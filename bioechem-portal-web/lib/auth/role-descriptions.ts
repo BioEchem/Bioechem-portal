@@ -51,7 +51,7 @@ export const ROLE_DESCRIPTIONS: Record<SignupRole, RoleDescription> = {
     ],
   },
   industry_partner: {
-    label: "Industry partner",
+    label: "Partner",
     audience: "Companies and organizations partnering with BioEchem.",
     blurb: "You represent a company partnering with BioEchem — view shared reports and your own document folder.",
     features: [

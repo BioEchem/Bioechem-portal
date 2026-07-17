@@ -42,12 +42,14 @@ export function SignupForm() {
   const [emailExists, setEmailExists] = useState(false);
   const [pending, setPending] = useState(false);
   const [loadingSchools, setLoadingSchools] = useState(true);
+  const [partnerType, setPartnerType] = useState("");
 
   const needsPartnerSchool = role !== "" && roleRequiresPartnerSchool(role);
   const showsCohort = role !== "" && roleAllowsCohortOnSignup(role);
   const isParticipant = role === "participant";
   const isOtherSchool = schoolId === OTHER_SCHOOL_VALUE;
   const isBioechemAdmin = role === "bioechem_admin";
+  const isIndustryPartner = role === "industry_partner";
   const isPartnerOrShareholder =
     role === "industry_partner" || role === "shareholder";
 
@@ -56,6 +58,9 @@ export function SignupForm() {
     setRole(value);
     if (!value || !roleRequiresPartnerSchool(value)) {
       setSchoolId("");
+    }
+    if (value !== "industry_partner") {
+      setPartnerType("");
     }
   }
 
@@ -150,6 +155,12 @@ export function SignupForm() {
       return;
     }
 
+    if (selectedRole === "industry_partner" && !partnerType) {
+      setError("Please select your partner type.");
+      setPending(false);
+      return;
+    }
+
     const email = String(formData.get("email")).trim();
     const firstName = String(formData.get("firstName")).trim();
     const lastName = String(formData.get("lastName")).trim();
@@ -194,6 +205,7 @@ export function SignupForm() {
               ? cohortId || null
               : null,
           age: selectedRole === "participant" ? age : null,
+          partnerType: selectedRole === "industry_partner" ? partnerType : null,
         }),
       });
 
@@ -304,6 +316,28 @@ export function SignupForm() {
           <p className="mt-1.5 text-xs text-bio-text-muted">{ROLE_DESCRIPTIONS[role].blurb}</p>
         )}
       </div>
+
+      {isIndustryPartner ? (
+        <div>
+          <label htmlFor="signup-partner-type" className={authLabelClassName}>
+            Partner type
+          </label>
+          <select
+            id="signup-partner-type"
+            name="partnerType"
+            disabled={pending}
+            value={partnerType}
+            onChange={(e) => setPartnerType(e.target.value)}
+            className={authInputClassName}
+          >
+            <option value="" disabled>
+              Select partner type
+            </option>
+            <option value="industry">Industry partner</option>
+            <option value="government">Government partner</option>
+          </select>
+        </div>
+      ) : null}
 
       {needsPartnerSchool ? (
         <>

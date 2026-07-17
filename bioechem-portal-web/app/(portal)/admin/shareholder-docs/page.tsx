@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileStack, FileText, Loader2, Trash2, Upload, X } from "lucide-react";
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
+import { AdminShareholderAnnouncements } from "@/components/shareholder/admin-shareholder-announcements";
 
 type DocRow = {
   id: string;
@@ -239,6 +240,7 @@ function DocForm({
 }
 
 export default function AdminShareholderDocsPage() {
+  const [tab, setTab] = useState<"documents" | "announcements">("documents");
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -294,6 +296,29 @@ export default function AdminShareholderDocsPage() {
   return (
     <PortalPage title="Shareholder Documents" description="Upload and manage documents visible to shareholders.">
       <div className="space-y-4">
+        <div className="flex gap-1 border-b border-card-border">
+          {[
+            { key: "documents" as const, label: "Documents" },
+            { key: "announcements" as const, label: "Announcements" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "border-bio-green text-bio-green"
+                  : "border-transparent text-bio-text-muted hover:text-bio-text"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "announcements" ? (
+          <AdminShareholderAnnouncements />
+        ) : (
+      <>
         <div className="flex justify-end">
           {!creating && (
             <button onClick={() => setCreating(true)}
@@ -369,6 +394,8 @@ export default function AdminShareholderDocsPage() {
             )}
           </PortalCard>
         ))}
+      </>
+        )}
       </div>
     </PortalPage>
   );

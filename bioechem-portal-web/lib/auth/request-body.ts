@@ -41,6 +41,10 @@ export function parseSignupBody(body: unknown): SignupRequestBody | null {
       : typeof record.age === "string" && record.age.trim()
         ? Number.parseInt(record.age.trim(), 10)
         : null;
+  const partnerType =
+    record.partnerType === "industry" || record.partnerType === "government"
+      ? record.partnerType
+      : null;
 
   if (!isSignupRole(String(role))) return null;
 
@@ -54,6 +58,7 @@ export function parseSignupBody(body: unknown): SignupRequestBody | null {
     otherSchoolName: otherSchoolName || null,
     cohortId,
     age: Number.isNaN(age) ? null : age,
+    partnerType,
   };
 }
 

@@ -2,10 +2,11 @@ import {
   roleAllowsCohortOnSignup,
   roleRequiresPartnerSchool,
 } from "@/lib/auth/roles";
-import type { SignupRole } from "@/lib/auth/types";
+import type { PartnerType, SignupRole } from "@/lib/auth/types";
 import { isEmailAlreadyRegistered } from "@/lib/auth/check-email";
 import { buildFullName } from "@/lib/profile/name";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export type SignUpResult =
   | { ok: true }
@@ -21,6 +22,7 @@ export type SignUpInput = {
   otherSchoolName?: string | null;
   cohortId?: string | null;
   age?: number | null;
+  partnerType?: PartnerType | null;
 };
 
 type ValidatedSignUpInput = {
@@ -34,6 +36,7 @@ type ValidatedSignUpInput = {
   otherSchoolName: string | null;
   cohortId: string | null;
   age: number | null;
+  partnerType: PartnerType | null;
 };
 
 export const EMAIL_EXISTS_MESSAGE =
@@ -76,6 +79,10 @@ export function validateSignUpInput(input: SignUpInput): SignUpResult | Validate
     return signUpFailure("Age is required for participants.");
   }
 
+  if (input.role === "industry_partner" && !input.partnerType) {
+    return signUpFailure("Partner type is required for industry partners.");
+  }
+
   return {
     email,
     password: input.password,
@@ -87,6 +94,7 @@ export function validateSignUpInput(input: SignUpInput): SignUpResult | Validate
     otherSchoolName,
     cohortId: roleAllowsCohortOnSignup(input.role) ? cohortId : null,
     age: input.role === "participant" ? (input.age ?? null) : null,
+    partnerType: input.role === "industry_partner" ? (input.partnerType ?? null) : null,
   };
 }
 
@@ -152,6 +160,17 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
 
   if (!data.user) {
     return signUpFailure("Could not create account. Please try again.");
+  }
+
+  // The DB trigger that creates the profiles row doesn't know about
+  // partner_type — set it here as a follow-up update. Uses the service
+  // role since a session may not be active yet at this point.
+  if (validated.role === "industry_partner" && validated.partnerType) {
+    const admin = createServiceRoleClient();
+    await admin
+      ?.from("profiles")
+      .update({ partner_type: validated.partnerType })
+      .eq("id", data.user.id);
   }
 
   return { ok: true };

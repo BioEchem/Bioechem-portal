@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   BookOpen,
   Briefcase,
   Building2,
@@ -63,6 +64,7 @@ const ADMIN_MANAGE_SECTION: PortalNavSection = {
     { label: "Schools", href: AUTH_ROUTES.adminSchools, icon: Building2 },
     { label: "Cohorts", href: AUTH_ROUTES.adminCohorts, icon: GraduationCap },
     { label: "Surveys", href: AUTH_ROUTES.adminSurveys, icon: ClipboardCheck },
+    { label: "Analytics", href: AUTH_ROUTES.adminAnalytics, icon: BarChart3 },
     // { label: "Job Postings", href: AUTH_ROUTES.adminJobs, icon: BriefcaseBusiness }, // TODO: re-enable when job postings feature is ready
   ],
 };

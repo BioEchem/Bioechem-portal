@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Paperclip } from "lucide-react";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { AssignmentSubmitForm } from "@/components/cohorts/assignment-submit-form";
@@ -36,7 +36,7 @@ export default async function AssignmentPage({
 
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id, due_at, max_points, requires_grading, grade_category, assignment_type, submission_type, instructions, cohort_id, module_items(id, title, content, module_id, published)")
+    .select("id, due_at, max_points, requires_grading, grade_category, assignment_type, submission_type, instructions, cohort_id, module_items(id, title, content, file_url, module_id, published)")
     .eq("id", assignmentId)
     .single();
 
@@ -55,7 +55,7 @@ export default async function AssignmentPage({
 
   if (!canManage && !isParticipant) notFound();
 
-  type ItemShape = { id: string; title: string; content: string | null; module_id: string; published: boolean };
+  type ItemShape = { id: string; title: string; content: string | null; file_url: string | null; module_id: string; published: boolean };
   const rawItem = assignment.module_items as unknown;
   const item: ItemShape | null = Array.isArray(rawItem) ? (rawItem[0] ?? null) : (rawItem as ItemShape | null);
 
@@ -154,6 +154,16 @@ export default async function AssignmentPage({
             <div className="mt-3 rounded-lg bg-bio-mint/20 p-3 text-sm text-bio-text whitespace-pre-wrap">
               {assignment.instructions}
             </div>
+          ) : null}
+          {item?.file_url ? (
+            <a
+              href={item.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex w-fit items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-sm font-medium text-bio-green hover:border-bio-green"
+            >
+              <Paperclip className="h-4 w-4" /> Download instructions file
+            </a>
           ) : null}
         </PortalCard>
 
