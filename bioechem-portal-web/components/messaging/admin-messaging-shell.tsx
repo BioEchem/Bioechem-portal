@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MessageSquarePlus, UserCheck, X, ExternalLink } from "lucide-react";
+import { Search, MessageSquarePlus, UserCheck, X, ExternalLink, ArrowLeft } from "lucide-react";
 import { getRoleLabel } from "@/lib/profile/display";
 import { MessageThread } from "@/components/messaging/message-thread";
 
@@ -127,7 +127,11 @@ export function AdminMessagingShell({ currentAdminId }: { currentAdminId: string
     <div className="flex h-full min-h-0 overflow-hidden rounded-xl border border-card-border bg-card shadow-[var(--shadow-card)]">
 
       {/* ── Left sidebar ── */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-card-border bg-bio-green-dark">
+      <div
+        className={`w-full shrink-0 flex-col border-r border-card-border bg-bio-green-dark sm:flex sm:w-72 ${
+          activeUserId ? "hidden" : "flex"
+        }`}
+      >
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <h2 className="text-sm font-semibold text-white">Messages</h2>
@@ -242,13 +246,25 @@ export function AdminMessagingShell({ currentAdminId }: { currentAdminId: string
       </div>
 
       {/* ── Right chat panel ── */}
-      <div className="flex flex-1 flex-col min-w-0 min-h-0">
+      <div
+        className={`flex-1 flex-col min-w-0 min-h-0 sm:flex ${
+          activeUserId ? "flex" : "hidden"
+        }`}
+      >
         {activeUserId ? (
           <>
             {/* Handler status bar */}
             {activeConv && (
               <div className="flex items-center justify-between border-b border-card-border bg-bio-mint/20 px-4 py-2 shrink-0 gap-3">
                 <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => router.push("/messaging")}
+                    className="flex items-center text-bio-text-muted hover:text-bio-green sm:hidden shrink-0"
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
                   <Link
                     href={`/admin/users/${activeUserId}`}
                     className="flex items-center gap-1 text-xs font-medium text-bio-green hover:underline shrink-0"

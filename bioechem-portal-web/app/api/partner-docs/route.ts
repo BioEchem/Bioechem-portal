@@ -12,6 +12,7 @@ export async function GET() {
     .from("partner_documents")
     .select("id, title, description, category, file_name, size_bytes, mime_type, created_at")
     .eq("published", true)
+    .is("partner_id", null)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

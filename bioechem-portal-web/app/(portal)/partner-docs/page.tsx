@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { requireSession } from "@/lib/auth/session";
 import { PortalPage } from "@/components/portal/portal-page";
 import { PartnerDocsList } from "@/components/partner/partner-docs-list";
+import { PartnerDocsTabs } from "@/components/partner/partner-docs-tabs";
 
 export const metadata: Metadata = { title: "Documents" };
 
@@ -17,7 +19,7 @@ type DocRow = {
 };
 
 export default async function PartnerDocsPage() {
-  const { supabase, profile } = await requireSession({ requireApproved: true });
+  const { supabase, user, profile } = await requireSession({ requireApproved: true });
 
   if (profile.role !== "industry_partner" && profile.role !== "bioechem_admin") {
     return (
@@ -31,6 +33,7 @@ export default async function PartnerDocsPage() {
     .from("partner_documents")
     .select("id, title, description, category, file_name, size_bytes, mime_type, created_at")
     .eq("published", true)
+    .is("partner_id", null)
     .order("created_at", { ascending: false })
     .returns<DocRow[]>();
 
@@ -41,7 +44,13 @@ export default async function PartnerDocsPage() {
       title="Documents"
       description="Impact reports and collateral shared with BioEChem's industry partners."
     >
-      <PartnerDocsList docs={docs} />
+      {profile.role === "industry_partner" ? (
+        <Suspense>
+          <PartnerDocsTabs currentUserId={user.id} sharedDocs={docs} />
+        </Suspense>
+      ) : (
+        <PartnerDocsList docs={docs} />
+      )}
     </PortalPage>
   );
 }

@@ -108,7 +108,7 @@ export function PortalSidebar({ userName, userEmail, userRole }: PortalSidebarPr
   );
 
   const subPanel = openSection ? (
-    <div className="flex w-52 shrink-0 flex-col border-r border-white/10">
+    <div className="flex flex-1 min-w-0 flex-col border-r border-white/10 lg:w-52 lg:flex-none">
       {/* Section header */}
       <div className="px-4 py-4 border-b border-white/10">
         <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
@@ -177,14 +177,14 @@ export function PortalSidebar({ userName, userEmail, userRole }: PortalSidebarPr
   return (
     <>
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between border-b border-card-border bg-bio-green-dark px-4 py-3 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-card-border bg-bio-green-dark px-4 lg:hidden">
         <Link href={PORTAL_ROUTES.dashboard} className="text-sm font-semibold text-white">
           BioEchem
         </Link>
         <button
           type="button"
           onClick={() => setMobileOpen((o) => !o)}
-          className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/10"
+          className="relative z-50 inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/10"
           aria-expanded={mobileOpen}
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -192,10 +192,20 @@ export function PortalSidebar({ userName, userEmail, userRole }: PortalSidebarPr
         </button>
       </div>
 
-      {/* Desktop sidebar */}
+      {/* Mobile backdrop */}
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        />
+      ) : null}
+
+      {/* Sidebar: fixed slide-in drawer on mobile, static column on desktop */}
       <aside
-        className={`shrink-0 bg-bio-green-dark lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-row ${
-          mobileOpen ? "flex flex-row" : "hidden lg:flex"
+        className={`z-50 flex w-[min(85vw,20rem)] flex-row shrink-0 bg-bio-green-dark shadow-2xl transition-transform duration-200 ease-out fixed top-14 bottom-0 left-0 lg:static lg:z-auto lg:w-auto lg:top-0 lg:h-screen lg:sticky lg:translate-x-0 lg:shadow-none ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {rail}

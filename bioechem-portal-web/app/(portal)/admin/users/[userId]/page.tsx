@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { AdminProfileActions } from "@/components/admin/admin-profile-actions";
+import { AdminPartnerTypeControl } from "@/components/admin/admin-partner-type-control";
 import { requireSession } from "@/lib/auth/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import {
@@ -31,6 +32,7 @@ type ProfileRow = {
   avatar_url: string | null;
   created_at: string;
   rejection_reason: string | null;
+  partner_type: string | null;
   schools: { id: string; name: string } | null;
 };
 
@@ -76,7 +78,7 @@ export default async function AdminUserProfilePage({
 
   const { data: profile, error: profileError } = await db
     .from("profiles")
-    .select("id, email, full_name, role, approval_status, other_school_name, bio, avatar_url, created_at, rejection_reason, schools(id, name)")
+    .select("id, email, full_name, role, approval_status, other_school_name, bio, avatar_url, created_at, rejection_reason, partner_type, schools(id, name)")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -183,6 +185,13 @@ export default async function AdminUserProfilePage({
               )}
             </div>
           </PortalCard>
+
+          {profile.role === "industry_partner" && (
+            <PortalCard>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">Partner type</h3>
+              <AdminPartnerTypeControl userId={profile.id} initialPartnerType={profile.partner_type} />
+            </PortalCard>
+          )}
         </div>
 
         {/* Bio */}

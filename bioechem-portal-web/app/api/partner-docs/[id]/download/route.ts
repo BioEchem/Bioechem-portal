@@ -5,7 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
-  const { supabase, profile } = await requireSession({ requireApproved: true });
+  const { supabase, user, profile } = await requireSession({ requireApproved: true });
 
   if (profile.role !== "industry_partner" && profile.role !== "bioechem_admin") {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
@@ -15,13 +15,20 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data: doc, error } = await supabase
     .from("partner_documents")
-    .select("storage_path, file_name")
+    .select("storage_path, file_name, partner_id, published")
     .eq("id", id)
-    .eq("published", true)
     .single();
 
   if (error || !doc) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (!doc.storage_path) return NextResponse.json({ error: "No file attached." }, { status: 404 });
+
+  // Broadcast docs (partner_id null) must be published; a partner's own
+  // folder docs must belong to them; admins can access everything.
+  const isOwnFolderDoc = doc.partner_id === user.id;
+  const isBroadcastDoc = doc.partner_id === null && doc.published;
+  if (profile.role !== "bioechem_admin" && !isOwnFolderDoc && !isBroadcastDoc) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   const admin = createServiceRoleClient();
   if (!admin) return NextResponse.json({ error: "Storage not configured." }, { status: 500 });

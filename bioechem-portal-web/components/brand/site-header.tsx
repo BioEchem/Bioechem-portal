@@ -53,6 +53,7 @@ export async function SiteHeader() {
           aria-label="Page sections"
         >
           <a href="/" className="transition-colors hover:text-bio-green">Home</a>
+          <Link href={AUTH_ROUTES.roles} className="transition-colors hover:text-bio-green">Account types</Link>
           <a
             href={MAIN_SITE_URL}
             target="_blank"
@@ -61,11 +62,6 @@ export async function SiteHeader() {
           >
             BioEchem.com
           </a>
-          <span className="h-4 w-px bg-card-border" aria-hidden />
-          <a href="/#upcoming-events" className="transition-colors hover:text-bio-green">Upcoming Events</a>
-          <a href="/#past-events" className="transition-colors hover:text-bio-green">Past Events</a>
-          <a href="/#newsletter" className="transition-colors hover:text-bio-green">Newsletter</a>
-          <a href="/#about" className="transition-colors hover:text-bio-green">About</a>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">

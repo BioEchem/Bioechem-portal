@@ -3,7 +3,9 @@ import { Mail, ExternalLink, Handshake } from "lucide-react";
 
 import { SiteFooter } from "@/components/brand/site-footer";
 import { SiteHeader } from "@/components/brand/site-header";
+import { LandingSectionNav } from "@/components/landing/section-nav";
 import { NewsletterList } from "@/components/landing/newsletter-list";
+import { RoleGuide } from "@/components/landing/role-guide";
 import { PastEventsGrid } from "@/components/landing/past-events-grid";
 import { UpcomingEventsList } from "@/components/landing/upcoming-events-list";
 import { resolvePostLoginRedirect } from "@/lib/auth/post-login-redirect";
@@ -80,6 +82,7 @@ export default async function HomePage() {
   return (
     <>
       <SiteHeader />
+      <LandingSectionNav />
       <main className="flex flex-1 flex-col">
 
         {/* ── Hero ── */}
@@ -97,17 +100,23 @@ export default async function HomePage() {
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               {user && signedInDestination ? (
-                <Link href={signedInDestination} className="bio-btn-primary">
+                <Link
+                  href={signedInDestination}
+                  className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-6 text-sm font-semibold text-bio-green-deep shadow-lg transition-colors hover:bg-bio-mint"
+                >
                   Go to dashboard
                 </Link>
               ) : (
                 <>
-                  <Link href={AUTH_ROUTES.signup} className="bio-btn-primary">
+                  <Link
+                    href={AUTH_ROUTES.signup}
+                    className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-6 text-sm font-semibold text-bio-green-deep shadow-lg transition-colors hover:bg-bio-mint"
+                  >
                     Create account
                   </Link>
                   <Link
                     href={AUTH_ROUTES.login}
-                    className="inline-flex h-11 items-center justify-center rounded-lg border-2 border-white/70 px-6 text-sm font-medium text-white transition-colors hover:border-white hover:bg-white/10"
+                    className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-6 text-sm font-semibold text-bio-green-deep shadow-lg transition-colors hover:bg-bio-mint"
                   >
                     Log in
                   </Link>
@@ -116,6 +125,9 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* ── Who is this for? — helps first-time visitors pick a role ── */}
+        {!user && <RoleGuide />}
 
         {/* ── Collaboration CTA — one place, impossible to miss ── */}
         <section className="bg-green-50 px-4 py-10 sm:px-6">

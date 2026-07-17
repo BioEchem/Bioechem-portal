@@ -2,6 +2,7 @@
 
 export const AUTH_ROUTES = {
   home: "/",
+  roles: "/roles",
   login: "/auth/login",
   signup: "/auth/signup",
   forgotPassword: "/auth/forgot-password",

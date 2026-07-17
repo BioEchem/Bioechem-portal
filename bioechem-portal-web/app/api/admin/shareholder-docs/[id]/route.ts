@@ -19,6 +19,10 @@ export async function PATCH(req: Request, { params }: Params) {
   if (typeof body.description === "string") updates.description = body.description.trim() || null;
   if (VALID_CATEGORIES.includes(body.category as string)) updates.category = body.category;
   if (typeof body.published   === "boolean") updates.published  = body.published;
+  if (Array.isArray(body.shared_with)) {
+    const ids = body.shared_with.filter((v): v is string => typeof v === "string" && v.length > 0);
+    updates.shared_with = ids.length > 0 ? ids : null;
+  }
 
   const { data, error } = await auth.supabase
     .from("shareholder_documents")

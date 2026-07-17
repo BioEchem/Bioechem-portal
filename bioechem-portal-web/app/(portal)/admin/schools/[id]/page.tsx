@@ -9,6 +9,7 @@ import {
   Phone,
   MapPin,
   GraduationCap,
+  User,
 } from "lucide-react";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
@@ -76,7 +77,7 @@ export default async function AdminSchoolOverviewPage({
   const { data: school } = await supabase
     .from("schools")
     .select(
-      "id, name, description, city, state, country, website, contact_email, contact_phone, is_partner, is_active, created_at",
+      "id, name, description, city, state, country, website, contact_name, contact_email, contact_phone, is_partner, is_active, created_at",
     )
     .eq("id", id)
     .single();
@@ -214,6 +215,11 @@ export default async function AdminSchoolOverviewPage({
                     <Globe className="h-3.5 w-3.5" />
                     {school.website.replace(/^https?:\/\//, "")}
                   </a>
+                ) : null}
+                {school.contact_name ? (
+                  <span className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5" /> {school.contact_name}
+                  </span>
                 ) : null}
                 {school.contact_email ? (
                   <a

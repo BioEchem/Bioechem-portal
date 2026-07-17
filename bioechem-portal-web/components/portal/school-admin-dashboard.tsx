@@ -29,7 +29,7 @@ export function SchoolAdminDashboard({ data }: SchoolAdminDashboardProps) {
         ]}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Active cohorts" value={data.stats.activeCohorts} />
         <StatCard label="Students enrolled" value={data.stats.totalEnrolled} />
         <StatCard label="Teachers" value={data.stats.totalTeachers} />

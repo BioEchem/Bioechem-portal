@@ -11,6 +11,7 @@ import { EnrollButton } from "@/components/cohorts/enroll-button";
 import { EnrollmentReviewTable, type ReviewableEnrollment, type ReviewerNames } from "@/components/cohorts/enrollment-review-table";
 import { RosterPeopleTable, type RosterEntry } from "@/components/cohorts/roster-people-table";
 import { ClassroomView, type ClassSession, type SessionRecording } from "@/components/cohorts/classroom/classroom-view";
+import { CareerPathSelfSection, CareerPathManagerSection } from "@/components/cohorts/career-path-section";
 import { requireSession } from "@/lib/auth/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { getDisplayName } from "@/lib/profile/display";
@@ -550,6 +551,7 @@ export default async function CohortHomePage({
     ...(canViewContent ? [{ key: "surveys", label: "Surveys" }] : []),
     ...(canViewContent ? [{ key: "classroom", label: "Classroom" }] : []),
     ...(canViewContent ? [{ key: "grades", label: "Grades" }] : []),
+    ...(canViewContent ? [{ key: "career_path", label: "Career Path" }] : []),
     ...((isApprovedEnrolled || isBioAdminViewing) ? [{ key: "certificates", label: "Certificates" }] : []),
     ...(canViewContent ? [{ key: "roster", label: "Roster", badge: canManage ? pendingCount : 0 }] : []),
   ];
@@ -798,6 +800,13 @@ export default async function CohortHomePage({
               )}
             </PortalCard>
           </div>
+
+        ) : tab === "career_path" && canViewContent ? (
+          canManage ? (
+            <CareerPathManagerSection cohortId={cohortId} />
+          ) : (
+            <CareerPathSelfSection cohortId={cohortId} />
+          )
 
         ) : tab === "certificates" && isApprovedEnrolled ? (
           <CertificatesTabContent certificates={myCertificates} />

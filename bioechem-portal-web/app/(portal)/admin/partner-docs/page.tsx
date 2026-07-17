@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileStack, FileText, Loader2, Trash2, Upload, X } from "lucide-react";
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
+import { AdminPartnerFolderBrowser } from "@/components/partner/partner-folder-browser";
+import { AdminPartnerAnnouncements } from "@/components/partner/admin-partner-announcements";
 
 type DocRow = {
   id: string;
@@ -180,6 +182,7 @@ function DocForm({
 }
 
 export default function AdminPartnerDocsPage() {
+  const [tab, setTab] = useState<"shared" | "folders" | "announcements">("shared");
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -235,6 +238,32 @@ export default function AdminPartnerDocsPage() {
   return (
     <PortalPage title="Partner Documents" description="Upload and manage documents visible to industry partners.">
       <div className="space-y-4">
+        <div className="flex gap-1 border-b border-card-border">
+          {[
+            { key: "shared" as const, label: "Shared with all partners" },
+            { key: "folders" as const, label: "Partner folders" },
+            { key: "announcements" as const, label: "Announcements" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "border-bio-green text-bio-green"
+                  : "border-transparent text-bio-text-muted hover:text-bio-text"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "folders" ? (
+          <AdminPartnerFolderBrowser />
+        ) : tab === "announcements" ? (
+          <AdminPartnerAnnouncements />
+        ) : (
+      <>
         <div className="flex justify-end">
           {!creating && (
             <button onClick={() => setCreating(true)}
@@ -305,6 +334,8 @@ export default function AdminPartnerDocsPage() {
             )}
           </PortalCard>
         ))}
+      </>
+        )}
       </div>
     </PortalPage>
   );

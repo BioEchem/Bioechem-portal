@@ -119,7 +119,7 @@ export default async function RosterPage({
         </Link>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[
             { label: "Students", value: approvedParticipants.length },
             { label: "Teachers", value: teacherEnrollments.filter((e) => e.status === "approved").length },

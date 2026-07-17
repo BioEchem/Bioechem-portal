@@ -10,6 +10,7 @@ export async function GET() {
   const { data, error } = await auth.supabase
     .from("partner_documents")
     .select("id, title, description, category, file_name, size_bytes, mime_type, storage_path, published, created_at")
+    .is("partner_id", null)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

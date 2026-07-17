@@ -13,8 +13,11 @@ type DocRow = {
   size_bytes: number | null;
   storage_path: string | null;
   published: boolean;
+  shared_with: string[] | null;
   created_at: string;
 };
+
+type ShareholderOption = { id: string; full_name: string | null; email: string | null };
 
 const CATEGORIES = [
   { value: "general",    label: "General" },
@@ -49,18 +52,40 @@ function DocForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [category,    setCategory]    = useState(initial?.category    ?? "general");
   const [published,   setPublished]   = useState(initial?.published   ?? true);
+  const [visibility,  setVisibility]  = useState<"everyone" | "specific">(
+    initial?.shared_with && initial.shared_with.length > 0 ? "specific" : "everyone"
+  );
+  const [sharedWith,  setSharedWith]  = useState<string[]>(initial?.shared_with ?? []);
+  const [shareholders, setShareholders] = useState<ShareholderOption[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [status,      setStatus]      = useState<string | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [confirming,  setConfirming]  = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    fetch("/api/admin/shareholders")
+      .then((r) => r.json())
+      .then((j: { data?: ShareholderOption[] }) => setShareholders(j.data ?? []))
+      .catch(() => setShareholders([]));
+  }, []);
+
+  function toggleRecipient(id: string) {
+    setSharedWith((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setStatus(mode === "create" ? "Creating…" : "Saving…");
     try {
-      const saved = await onSave({ title, description: description || null, category, published });
+      const saved = await onSave({
+        title,
+        description: description || null,
+        category,
+        published,
+        shared_with: visibility === "specific" ? sharedWith : null,
+      });
       if (pendingFile) {
         setStatus("Uploading file…");
         const fd = new FormData();
@@ -147,6 +172,37 @@ function DocForm({
           className="h-4 w-4 rounded border-card-border accent-bio-green" />
         <span className="text-bio-text">Published (visible to shareholders)</span>
       </label>
+
+      <div>
+        <label className="mb-2 block text-xs font-medium text-bio-text-muted">Visibility</label>
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={visibility === "everyone"} onChange={() => setVisibility("everyone")}
+              className="h-4 w-4 accent-bio-green" />
+            <span className="text-bio-text">Everyone</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={visibility === "specific"} onChange={() => setVisibility("specific")}
+              className="h-4 w-4 accent-bio-green" />
+            <span className="text-bio-text">Specific shareholders</span>
+          </label>
+        </div>
+        {visibility === "specific" && (
+          <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-card-border p-2">
+            {shareholders.length === 0 ? (
+              <p className="px-1 py-1 text-xs text-bio-text-muted">No approved shareholders yet.</p>
+            ) : (
+              shareholders.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-bio-surface">
+                  <input type="checkbox" checked={sharedWith.includes(s.id)} onChange={() => toggleRecipient(s.id)}
+                    className="h-4 w-4 rounded border-card-border accent-bio-green" />
+                  <span className="text-bio-text">{s.full_name ?? s.email}</span>
+                </label>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -275,6 +331,11 @@ export default function AdminShareholderDocsPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${doc.published ? "bg-bio-green/10 text-bio-green" : "bg-amber-100 text-amber-700"}`}>
                     {doc.published ? "Published" : "Draft"}
                   </span>
+                  {doc.shared_with && doc.shared_with.length > 0 && (
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+                      Shared with {doc.shared_with.length} shareholder{doc.shared_with.length === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-0.5 text-xs text-bio-text-muted">
                   {doc.file_name

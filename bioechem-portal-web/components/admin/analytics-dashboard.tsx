@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import {
+  Award,
   CheckCircle,
   ChevronDown,
   ChevronUp,
   GraduationCap,
   Loader2,
   TrendingUp,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
@@ -29,6 +31,10 @@ type CohortStat = {
   submission_rate: number | null;
   avg_grade: number | null;
   grade_distribution: GradeDistribution;
+  retention_rate: number | null;
+  dropped_participants: number;
+  certificate_rate: number | null;
+  certificate_count: number;
 };
 
 type Summary = {
@@ -36,6 +42,8 @@ type Summary = {
   approved_users: number;
   pending_users: number;
   recent_signups_30d: number;
+  retention_rate: number | null;
+  certificate_rate: number | null;
   users_by_role: Record<string, number>;
   total_cohorts: number;
   active_cohorts: number;
@@ -147,11 +155,23 @@ export function AnalyticsDashboard() {
       {/* Platform summary */}
       <div>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-bio-text-muted">Platform overview</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Total users" value={summary.total_users} sub={`${summary.pending_users} pending approval`} icon={Users} />
           <StatCard label="Approved users" value={summary.approved_users} sub={`+${summary.recent_signups_30d} last 30 days`} icon={TrendingUp} />
           <StatCard label="Cohorts" value={summary.total_cohorts} sub={`${summary.active_cohorts} active`} icon={GraduationCap} />
           <StatCard label="Total submissions" value={summary.total_submissions} sub={`${summary.total_grades} graded`} icon={CheckCircle} />
+          <StatCard
+            label="Retention rate"
+            value={summary.retention_rate != null ? `${summary.retention_rate}%` : "—"}
+            sub="Enrolled participants who haven't dropped"
+            icon={UserCheck}
+          />
+          <StatCard
+            label="Certificate rate"
+            value={summary.certificate_rate != null ? `${summary.certificate_rate}%` : "—"}
+            sub="Participants who've earned a certificate"
+            icon={Award}
+          />
         </div>
       </div>
 
@@ -219,6 +239,12 @@ export function AnalyticsDashboard() {
                         {cohort.avg_grade != null && (
                           <span><strong className="text-bio-text">{cohort.avg_grade} pts</strong> avg grade</span>
                         )}
+                        {cohort.retention_rate != null && (
+                          <span><strong className="text-bio-text">{cohort.retention_rate}%</strong> retention</span>
+                        )}
+                        {cohort.certificate_rate != null && (
+                          <span><strong className="text-bio-text">{cohort.certificate_rate}%</strong> certified</span>
+                        )}
                       </div>
                     </div>
                     <button className="shrink-0 text-bio-text-muted hover:text-bio-green">
@@ -236,6 +262,10 @@ export function AnalyticsDashboard() {
                             <div className="flex justify-between"><span className="text-bio-text-muted">Participants</span><span className="font-medium">{cohort.participants}</span></div>
                             <div className="flex justify-between"><span className="text-bio-text-muted">Teachers</span><span className="font-medium">{cohort.teachers}</span></div>
                             <div className="flex justify-between"><span className="text-bio-text-muted">Pending</span><span className="font-medium">{cohort.pending_enrollments}</span></div>
+                            <div className="flex justify-between"><span className="text-bio-text-muted">Dropped</span><span className="font-medium">{cohort.dropped_participants}</span></div>
+                            {cohort.retention_rate != null && (
+                              <div className="flex justify-between"><span className="text-bio-text-muted">Retention rate</span><span className="font-medium text-bio-green">{cohort.retention_rate}%</span></div>
+                            )}
                           </div>
                         </div>
                         <div>
@@ -250,14 +280,18 @@ export function AnalyticsDashboard() {
                           </div>
                         </div>
                         <div>
-                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-bio-text-muted">Grades</p>
-                          {cohort.avg_grade != null ? (
-                            <div className="space-y-1 text-sm">
-                              <div className="flex justify-between"><span className="text-bio-text-muted">Average</span><span className="font-medium text-bio-green">{cohort.avg_grade} pts</span></div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-bio-text-muted">No grades yet</p>
-                          )}
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-bio-text-muted">Grades &amp; certificates</p>
+                          <div className="space-y-1 text-sm">
+                            {cohort.avg_grade != null ? (
+                              <div className="flex justify-between"><span className="text-bio-text-muted">Average grade</span><span className="font-medium text-bio-green">{cohort.avg_grade} pts</span></div>
+                            ) : (
+                              <p className="text-xs text-bio-text-muted">No grades yet</p>
+                            )}
+                            <div className="flex justify-between"><span className="text-bio-text-muted">Certificates issued</span><span className="font-medium">{cohort.certificate_count}</span></div>
+                            {cohort.certificate_rate != null && (
+                              <div className="flex justify-between"><span className="text-bio-text-muted">Certificate rate</span><span className="font-medium text-bio-green">{cohort.certificate_rate}%</span></div>
+                            )}
+                          </div>
                         </div>
                       </div>
 

@@ -15,6 +15,7 @@ export async function GET() {
     submissionsRes,
     gradesRes,
     profilesRes,
+    certificatesRes,
   ] = await Promise.all([
     supabase
       .from("cohorts")
@@ -40,6 +41,10 @@ export async function GET() {
     supabase
       .from("profiles")
       .select("id, approval_status, role, created_at"),
+
+    supabase
+      .from("certificates")
+      .select("cohort_id, user_id"),
   ]);
 
   const cohorts = cohortsRes.data ?? [];
@@ -48,6 +53,7 @@ export async function GET() {
   const submissions = submissionsRes.data ?? [];
   const grades = gradesRes.data ?? [];
   const profiles = profilesRes.data ?? [];
+  const certificates = certificatesRes.data ?? [];
 
   // Build per-cohort stats
   const cohortStats = cohorts.map((cohort) => {
@@ -66,6 +72,25 @@ export async function GET() {
     const expectedSubmissions = participants.length * gradedAssignments.length;
     const submissionRate = expectedSubmissions > 0
       ? Math.round((cohortSubmissions.length / expectedSubmissions) * 100)
+      : null;
+
+    // Retention rate: of everyone ever approved into the cohort, how many
+    // are still enrolled (i.e. haven't dropped)? dropped rows keep their
+    // history, so this is (approved) / (approved + dropped).
+    const droppedParticipants = cohortEnrollments.filter((e) => e.role === "participant" && e.status === "dropped");
+    const everEnrolled = participants.length + droppedParticipants.length;
+    const retentionRate = everEnrolled > 0
+      ? Math.round((participants.length / everEnrolled) * 100)
+      : null;
+
+    // Certificate rate: participants who have received a certificate for
+    // this cohort, as a share of approved participants.
+    const cohortCertificateHolders = new Set(
+      certificates.filter((c) => c.cohort_id === cohort.id).map((c) => c.user_id)
+    );
+    const certificateCount = participants.filter((p) => cohortCertificateHolders.has(p.user_id)).length;
+    const certificateRate = participants.length > 0
+      ? Math.round((certificateCount / participants.length) * 100)
       : null;
 
     // Average grade across all graded submissions
@@ -107,6 +132,10 @@ export async function GET() {
       submission_rate: submissionRate,
       avg_grade: avgGrade,
       grade_distribution: gradeDistribution,
+      retention_rate: retentionRate,
+      dropped_participants: droppedParticipants.length,
+      certificate_rate: certificateRate,
+      certificate_count: certificateCount,
     };
   });
 
@@ -122,11 +151,25 @@ export async function GET() {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const recentSignups = profiles.filter((p) => p.created_at >= thirtyDaysAgo).length;
 
+  // Platform-wide retention & certificate rate — aggregate across all cohorts
+  const totalActiveParticipants = cohortStats.reduce((sum, c) => sum + c.participants, 0);
+  const totalDroppedParticipants = cohortStats.reduce((sum, c) => sum + c.dropped_participants, 0);
+  const totalEverEnrolled = totalActiveParticipants + totalDroppedParticipants;
+  const overallRetentionRate = totalEverEnrolled > 0
+    ? Math.round((totalActiveParticipants / totalEverEnrolled) * 100)
+    : null;
+  const totalCertificateHolders = cohortStats.reduce((sum, c) => sum + c.certificate_count, 0);
+  const overallCertificateRate = totalActiveParticipants > 0
+    ? Math.round((totalCertificateHolders / totalActiveParticipants) * 100)
+    : null;
+
   const summary = {
     total_users: profiles.length,
     approved_users: approved.length,
     pending_users: pendingProfiles.length,
     recent_signups_30d: recentSignups,
+    retention_rate: overallRetentionRate,
+    certificate_rate: overallCertificateRate,
     users_by_role: byRole,
     total_cohorts: cohorts.length,
     active_cohorts: cohorts.filter((c) => c.is_active).length,

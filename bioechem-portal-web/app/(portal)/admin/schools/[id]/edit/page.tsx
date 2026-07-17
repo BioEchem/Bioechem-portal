@@ -23,7 +23,7 @@ export default async function AdminSchoolEditPage({
 
   const { data: school } = await supabase
     .from("schools")
-    .select("id, name, slug, description, city, state, country, website, contact_email, contact_phone, is_partner, is_active")
+    .select("id, name, slug, description, city, state, country, website, contact_name, contact_email, contact_phone, is_partner, is_active")
     .eq("id", id)
     .single();
 

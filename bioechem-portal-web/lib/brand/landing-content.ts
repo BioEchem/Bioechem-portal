@@ -5,7 +5,7 @@
 
 export const HERO = {
   eyebrow: "Clean Tech · STEM Education",
-  headline: "Empowering the Next Generation of Scientists",
+  headline: "Empower the Next Generation of Scientist and Engineer",
   subheadline:
     "BioEchem partners with schools to deliver hands-on biochemistry and clean-tech curriculum. This portal connects participants, teachers, and partner schools.",
 } as const;
@@ -19,7 +19,7 @@ export const STATS: { value: string; label: string }[] = [
 
 export const ABOUT = {
   heading: "Our Mission",
-  body: "BioEchem is a Boston-based education company dedicated to making biochemistry and clean technology accessible to students across the country. Through hands-on labs, industry partnerships, and rigorous curriculum, we prepare the next generation for careers in STEM.",
+  body: "BioEchem is a Boston-based education company dedicated to making biochemistry and clean technology accessible to students across the country. Through hands-on labs, industry partnerships, and rigorous curriculum, we prepare the next generation for careers in Clean tech & STEM.",
   linkLabel: "Learn more at bioechem.com",
 } as const;
 

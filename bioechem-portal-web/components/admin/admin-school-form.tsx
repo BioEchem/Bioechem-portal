@@ -25,6 +25,7 @@ type School = {
   state: string | null;
   country: string | null;
   website: string | null;
+  contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   is_partner: boolean;
@@ -41,6 +42,7 @@ export function AdminSchoolForm({ school }: { school: School }) {
   const [state, setState] = useState(school?.state ?? "");
   const [country, setCountry] = useState(school?.country ?? "United States");
   const [website, setWebsite] = useState(school?.website ?? "");
+  const [contactName, setContactName] = useState(school?.contact_name ?? "");
   const [contactEmail, setContactEmail] = useState(school?.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(school?.contact_phone ?? "");
   const [isPartner, setIsPartner] = useState(school?.is_partner ?? true);
@@ -62,7 +64,7 @@ export function AdminSchoolForm({ school }: { school: School }) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, city, state, country, website, contactEmail, contactPhone, isPartner, isActive }),
+        body: JSON.stringify({ name, description, city, state, country, website, contactName, contactEmail, contactPhone, isPartner, isActive }),
       });
       const json = await res.json() as { data?: { id: string }; error?: string };
       if (!res.ok) { setError(json.error ?? "Failed to save."); return; }
@@ -160,6 +162,10 @@ export function AdminSchoolForm({ school }: { school: School }) {
         <div>
           <label className={authLabelClassName}>Website</label>
           <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} disabled={pending} placeholder="https://" className={authInputClassName} />
+        </div>
+        <div>
+          <label className={authLabelClassName}>Contact name</label>
+          <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value)} disabled={pending} placeholder="e.g. Jane Doe" className={authInputClassName} />
         </div>
         <div>
           <label className={authLabelClassName}>Contact email</label>

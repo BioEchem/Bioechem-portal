@@ -64,7 +64,7 @@ export default async function AdminApprovalsPage() {
     >
       <div className="space-y-4">
         <PortalCard>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard label="Total users" value={rows.length} />
             <StatCard label="Waiting approval" value={pending.length} />
             <StatCard label="Approved" value={approved.length} />

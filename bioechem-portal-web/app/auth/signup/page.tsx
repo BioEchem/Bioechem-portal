@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AuthCard } from "@/components/auth/auth-card";
 import { SignupForm } from "@/components/auth/signup-form";
@@ -25,7 +26,9 @@ export default function SignupPage() {
         </>
       }
     >
-      <SignupForm />
+      <Suspense>
+        <SignupForm />
+      </Suspense>
     </AuthCard>
   );
 }

@@ -1,20 +1,20 @@
 import nodemailer from "nodemailer";
+import { getAdminEmailRecipients } from "@/lib/notify/admin-recipients";
 
-// No-ops if SMTP env vars or ADMIN_EMAIL are not set.
+// No-ops if SMTP env vars are not set.
 async function sendEmailAlert(senderName: string, messagePreview: string) {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT ?? "465");
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminEmails = getAdminEmailRecipients();
 
-  if (!host || !user || !pass || !adminEmail) {
+  if (!host || !user || !pass) {
     console.warn(
       `[admin-message-alert] Skipped sending — missing ${[
         !host && "SMTP_HOST",
         !user && "SMTP_USER",
         !pass && "SMTP_PASS",
-        !adminEmail && "ADMIN_EMAIL",
       ].filter(Boolean).join(", ")}.`,
     );
     return;
@@ -31,7 +31,7 @@ async function sendEmailAlert(senderName: string, messagePreview: string) {
 
   await transporter.sendMail({
     from: `"BioEChem Portal" <${user}>`,
-    to: adminEmail,
+    to: adminEmails.join(", "),
     subject: `New message from ${senderName} — BioEChem Portal`,
     html: `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -15,6 +15,7 @@ import {
   roleAllowsCohortOnSignup,
   roleRequiresPartnerSchool,
 } from "@/lib/auth/roles";
+import { ROLE_DESCRIPTIONS } from "@/lib/auth/role-descriptions";
 import type { SignupRole } from "@/lib/auth/types";
 import type {
   AuthApiError,
@@ -28,10 +29,14 @@ const OTHER_SCHOOL_VALUE = "other";
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [schools, setSchools] = useState<SignupSchoolOption[]>([]);
   const [cohorts, setCohorts] = useState<SignupCohortOption[]>([]);
   const [schoolId, setSchoolId] = useState("");
-  const [role, setRole] = useState<SignupRole | "">("");
+  const [role, setRole] = useState<SignupRole | "">(() => {
+    const fromQuery = searchParams.get("role");
+    return fromQuery && isSignupRole(fromQuery) ? fromQuery : "";
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emailExists, setEmailExists] = useState(false);
@@ -291,13 +296,13 @@ export function SignupForm() {
           <option value="" disabled>
             Select your role
           </option>
-          <option value="participant">Participant</option>
-          <option value="teacher">Teacher</option>
-          <option value="school_admin">School admin</option>
-          <option value="industry_partner">Partner</option>
-          <option value="shareholder">Shareholder</option>
-          <option value="bioechem_admin">BioEchem admin</option>
+          {Object.entries(ROLE_DESCRIPTIONS).map(([value, { label }]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
+        {role !== "" && (
+          <p className="mt-1.5 text-xs text-bio-text-muted">{ROLE_DESCRIPTIONS[role].blurb}</p>
+        )}
       </div>
 
       {needsPartnerSchool ? (
