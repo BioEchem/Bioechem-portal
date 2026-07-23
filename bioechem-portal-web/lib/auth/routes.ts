@@ -14,6 +14,8 @@ export const AUTH_ROUTES = {
   adminApprovals: "/admin/approvals",
   adminSchools: "/admin/schools",
   adminCohorts: "/admin/cohorts",
+  adminPendingEnrollments: "/admin/cohorts/pending-enrollments",
+  adminPendingGrading: "/admin/cohorts/pending-grading",
   adminContent: "/admin/content",
   adminSurveys: "/admin/surveys",
   adminDrive: "/admin/drive",

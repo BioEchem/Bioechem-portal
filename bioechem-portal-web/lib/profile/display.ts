@@ -81,3 +81,12 @@ export function displayOrDash(value: string | null | undefined): string {
   const trimmed = value?.trim();
   return trimmed ? trimmed : EMPTY;
 }
+
+/** First two characters of name (or email) for compact avatar badges — e.g. messaging threads. */
+export function getShortInitials(
+  name: string | null | undefined,
+  email: string | null | undefined,
+): string {
+  const src = name ?? email ?? "?";
+  return src.slice(0, 2).toUpperCase();
+}

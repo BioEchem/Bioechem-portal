@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 import type { QuizAnswers, QuizQuestion } from "@/lib/quiz/types";
+import { formatShortDateTime as fmt } from "@/lib/format/date";
 
 type SubmissionRow = {
   id: string;
@@ -15,12 +16,6 @@ type SubmissionRow = {
   submitted_at: string;
   profiles: { full_name: string | null; email: string | null } | null;
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-  });
-}
 
 function SubmissionCard({
   cohortId,

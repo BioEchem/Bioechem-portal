@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Megaphone, Send, Upload, X } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
+import { formatBytes } from "@/lib/format/bytes";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type ShareholderOption = { id: string; full_name: string | null; email: string | null };
 
@@ -17,16 +19,6 @@ type SentAnnouncement = {
   created_at: string;
   profiles: { full_name: string | null; email: string | null } | null;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function AdminShareholderAnnouncements() {
   const [sent, setSent] = useState<SentAnnouncement[]>([]);

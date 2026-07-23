@@ -85,7 +85,7 @@ export function ModuleList({
             className="flex items-center rounded-xl border border-card-border bg-card shadow-[var(--shadow-card)] hover:border-bio-green/40"
           >
             <Link
-              href={`/cohorts/${cohortId}/modules/${mod.id}${backHref ? `?back=${encodeURIComponent(backHref)}` : ""}`}
+              href={`/cohorts/${cohortId}?tab=modules&moduleId=${mod.id}${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`}
               className="flex flex-1 min-w-0 items-center gap-4 p-4"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bio-mint/40">

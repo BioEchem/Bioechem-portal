@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Loader2, X } from "lucide-react";
 import type { JobRow } from "@/components/jobs/job-editor";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Application = {
   id: string;
@@ -26,10 +27,6 @@ const STATUS_STYLES: Record<string, string> = {
   accepted: "bg-bio-green/10 text-bio-green",
   rejected: "bg-red-50 text-red-700",
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function JobApplicationsPanel({ job, onClose }: { job: JobRow; onClose: () => void }) {
   const [apps, setApps] = useState<Application[]>([]);

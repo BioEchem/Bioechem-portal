@@ -14,6 +14,7 @@ import {
   EyeOff,
   Trash2,
 } from "lucide-react";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type ItemRow = {
   id: string;
@@ -38,10 +39,6 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   assignment: ClipboardList,
   quiz: HelpCircle,
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function ItemIcon({ type }: { type: string }) {
   const Icon = TYPE_ICON[type] ?? FileText;
@@ -228,7 +225,7 @@ export function ModuleItemList({
           return (
             <Link
               key={item.id}
-              href={`/cohorts/${cohortId}/assignments/${item.assignments.id}`}
+              href={`/cohorts/${cohortId}?tab=assignments&assignmentId=${item.assignments.id}`}
               className="block hover:opacity-90"
             >
               {inner}

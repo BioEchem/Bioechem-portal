@@ -12,9 +12,14 @@ import { EnrollmentReviewTable, type ReviewableEnrollment, type ReviewerNames } 
 import { RosterPeopleTable, type RosterEntry } from "@/components/cohorts/roster-people-table";
 import { ClassroomView, type ClassSession, type SessionRecording } from "@/components/cohorts/classroom/classroom-view";
 import { CareerPathSelfSection, CareerPathManagerSection } from "@/components/cohorts/career-path-section";
+import { AssignmentDetailBody } from "@/components/cohorts/assignment-detail-body";
+import { ModuleDetailBody } from "@/components/cohorts/module-detail-body";
 import { requireSession } from "@/lib/auth/session";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { getDisplayName } from "@/lib/profile/display";
+import { formatShortDate as fmt } from "@/lib/format/date";
+import { letterGrade as computeLetterGrade, pct } from "@/lib/grades/format";
+import { buildCohortTabs } from "@/lib/cohorts/tabs";
 
 export const metadata: Metadata = { title: "Cohort" };
 
@@ -48,6 +53,15 @@ type GradeRow = {
   } | null;
 };
 
+type ClassGradeRow = {
+  userId: string;
+  name: string;
+  email: string | null;
+  earned: number;
+  max: number;
+  pct: number | null;
+};
+
 type AssignmentRow = {
   id: string;
   due_at: string | null;
@@ -60,6 +74,8 @@ type AssignmentRow = {
     published: boolean;
   } | null;
   submissions: { id: string; submitted_at: string }[] | null;
+  submittedCount?: number;
+  ungradedCount?: number;
 };
 
 type SurveyRow = {
@@ -109,7 +125,7 @@ function AssignmentsTabContent({
         {rows.map((a) => {
           const item = a.module_items;
           const href = item
-            ? `/cohorts/${cohortId}/assignments/${a.id}${backHref ? `?back=${encodeURIComponent(backHref)}` : ""}`
+            ? `/cohorts/${cohortId}?tab=assignments&assignmentId=${a.id}${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`
             : "#";
           const submitted = hasSubmission(a);
           const overdue = !submitted && a.due_at && new Date(a.due_at) < now;
@@ -146,7 +162,26 @@ function AssignmentsTabContent({
                     </Link>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex shrink-0 items-center gap-2">
+                  {(a.ungradedCount ?? 0) > 0 ? (
+                    <Link
+                      href={href}
+                      className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
+                    >
+                      {a.ungradedCount} ungraded
+                    </Link>
+                  ) : (a.submittedCount ?? 0) > 0 ? (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      All graded
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-bio-text-muted/10 px-2 py-0.5 text-xs text-bio-text-muted">
+                      No submissions yet
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -273,22 +308,8 @@ function SurveysTabContent({ surveys }: { surveys: SurveyRow[] }) {
   );
 }
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function pct(earned: number | null, max: number) {
-  if (earned == null || max === 0) return null;
-  return Math.round((earned / max) * 100);
-}
-
-function letterGrade(p: number | null) {
-  if (p == null) return "—";
-  if (p >= 90) return "A";
-  if (p >= 80) return "B";
-  if (p >= 70) return "C";
-  if (p >= 60) return "D";
-  return "F";
+function letterGrade(p: number | null): string {
+  return computeLetterGrade(p) ?? "—";
 }
 
 export default async function CohortHomePage({
@@ -296,10 +317,10 @@ export default async function CohortHomePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; back?: string; as?: string }>;
+  searchParams: Promise<{ tab?: string; back?: string; as?: string; assignmentId?: string; moduleId?: string }>;
 }) {
   const { id: cohortId } = await params;
-  const { tab = "home", back, as: asUserId } = await searchParams;
+  const { tab = "home", back, as: asUserId, assignmentId, moduleId } = await searchParams;
   const backHref = back?.startsWith("/admin/") ? back : null;
 
   const { supabase, user, profile } = await requireSession({
@@ -358,6 +379,7 @@ export default async function CohortHomePage({
   const canViewContent = canManage || isApprovedEnrolled;
 
   let pendingCount = 0;
+  let ungradedTotalCount = 0;
   if (canManage) {
     const { count } = await supabase
       .from("cohort_enrollments")
@@ -365,6 +387,21 @@ export default async function CohortHomePage({
       .eq("cohort_id", cohortId)
       .eq("status", "pending");
     pendingCount = count ?? 0;
+
+    const { data: gradableAssignmentIds } = await supabase
+      .from("assignments")
+      .select("id")
+      .eq("cohort_id", cohortId)
+      .eq("requires_grading", true);
+    const assignmentIds = (gradableAssignmentIds ?? []).map((a) => a.id as string);
+    if (assignmentIds.length > 0) {
+      const [{ data: submissionsForCount }, { data: gradesForCount }] = await Promise.all([
+        supabase.from("submissions").select("id").in("assignment_id", assignmentIds),
+        supabase.from("grades").select("submission_id").in("assignment_id", assignmentIds),
+      ]);
+      const gradedIds = new Set((gradesForCount ?? []).map((g) => g.submission_id as string));
+      ungradedTotalCount = (submissionsForCount ?? []).filter((s) => !gradedIds.has(s.id as string)).length;
+    }
   }
 
   // Fetch home/modules content
@@ -372,7 +409,7 @@ export default async function CohortHomePage({
   let modules: ModuleRow[] = [];
   type ContactRow = { id: string; name: string; email: string; title: string | null };
   let cohortContacts: ContactRow[] = [];
-  if ((tab === "home" || tab === "modules") && canViewContent) {
+  if ((tab === "home" || (tab === "modules" && !moduleId)) && canViewContent) {
     const [annRes, modRes, contactRes] = await Promise.all([
       supabase
         .from("announcements")
@@ -403,9 +440,10 @@ export default async function CohortHomePage({
     cohortContacts = contactRes.data ?? [];
   }
 
-  // Fetch assignments for assignments tab
+  // Fetch assignments for assignments tab (list view only — a specific
+  // assignmentId renders AssignmentDetailBody instead, which fetches its own data)
   let cohortAssignments: AssignmentRow[] = [];
-  if (tab === "assignments" && canViewContent) {
+  if (tab === "assignments" && canViewContent && !assignmentId) {
     const { data } = await db
       .from("assignments")
       .select(`id, due_at, max_points, module_item_id, module_items(id, title, module_id, published), submissions!left(id, submitted_at)`)
@@ -416,6 +454,32 @@ export default async function CohortHomePage({
     cohortAssignments = (data ?? []).filter(
       (a) => canManage || a.module_items?.published
     );
+
+    // Managers need aggregate submitted/ungraded counts across all
+    // participants, not just their own — the query above scopes
+    // `submissions` to the viewer, which is meaningless for a teacher/admin.
+    if (canManage && cohortAssignments.length > 0) {
+      const assignmentIds = cohortAssignments.map((a) => a.id);
+      const [{ data: allSubmissions }, { data: allGrades }] = await Promise.all([
+        db.from("submissions").select("id, assignment_id").in("assignment_id", assignmentIds),
+        db.from("grades").select("submission_id, assignment_id").in("assignment_id", assignmentIds),
+      ]);
+      const gradedSubmissionIds = new Set((allGrades ?? []).map((g) => g.submission_id as string));
+      const submittedCountByAssignment = new Map<string, number>();
+      const ungradedCountByAssignment = new Map<string, number>();
+      for (const s of allSubmissions ?? []) {
+        const aId = s.assignment_id as string;
+        submittedCountByAssignment.set(aId, (submittedCountByAssignment.get(aId) ?? 0) + 1);
+        if (!gradedSubmissionIds.has(s.id as string)) {
+          ungradedCountByAssignment.set(aId, (ungradedCountByAssignment.get(aId) ?? 0) + 1);
+        }
+      }
+      cohortAssignments = cohortAssignments.map((a) => ({
+        ...a,
+        submittedCount: submittedCountByAssignment.get(a.id) ?? 0,
+        ungradedCount: ungradedCountByAssignment.get(a.id) ?? 0,
+      }));
+    }
   }
 
   // Fetch surveys for surveys tab
@@ -475,17 +539,60 @@ export default async function CohortHomePage({
     myCertificates = data ?? [];
   }
 
-  // Fetch grades data when on grades tab
+  // Fetch grades data when on grades tab. Teachers/admins see a class-wide
+  // overview (everyone's totals); participants see just their own grades.
   let myGrades: GradeRow[] = [];
+  let classGrades: ClassGradeRow[] = [];
   if (tab === "grades" && canViewContent) {
-    const { data } = await db
-      .from("grades")
-      .select("id, points_earned, feedback, graded_at, assignments(id, max_points, module_items(title, module_id))")
-      .eq("cohort_id", cohortId)
-      .eq("user_id", viewingUserId)
-      .order("graded_at", { ascending: false })
-      .returns<GradeRow[]>();
-    myGrades = data ?? [];
+    if (canManage) {
+      const [{ data: participantRows }, { data: allGrades }] = await Promise.all([
+        supabase
+          .from("cohort_enrollments")
+          .select("user_id, profiles!user_id(full_name, email)")
+          .eq("cohort_id", cohortId)
+          .eq("role", "participant")
+          .eq("status", "approved"),
+        supabase
+          .from("grades")
+          .select("user_id, points_earned, assignments(max_points)")
+          .eq("cohort_id", cohortId),
+      ]);
+
+      const totalsByUser = new Map<string, { earned: number; max: number }>();
+      for (const g of allGrades ?? []) {
+        const uid = g.user_id as string;
+        const current = totalsByUser.get(uid) ?? { earned: 0, max: 0 };
+        current.earned += g.points_earned ?? 0;
+        const assignmentRaw = g.assignments as unknown;
+        const assignmentMax = Array.isArray(assignmentRaw)
+          ? (assignmentRaw[0] as { max_points: number } | undefined)?.max_points
+          : (assignmentRaw as { max_points: number } | null)?.max_points;
+        current.max += assignmentMax ?? 0;
+        totalsByUser.set(uid, current);
+      }
+
+      classGrades = (participantRows ?? []).map((p) => {
+        const profile = p.profiles as unknown as { full_name: string | null; email: string | null } | null;
+        const totals = totalsByUser.get(p.user_id as string) ?? { earned: 0, max: 0 };
+        return {
+          userId: p.user_id as string,
+          name: profile?.full_name ?? profile?.email ?? "Unknown",
+          email: profile?.email ?? null,
+          earned: totals.earned,
+          max: totals.max,
+          pct: totals.max > 0 ? pct(totals.earned, totals.max) : null,
+        };
+      }).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+    } else {
+      const { data } = await db
+        .from("grades")
+        .select("id, points_earned, feedback, graded_at, assignments(id, max_points, module_items(title, module_id))")
+        .eq("cohort_id", cohortId)
+        .eq("user_id", viewingUserId)
+        .order("graded_at", { ascending: false })
+        .returns<GradeRow[]>();
+      myGrades = data ?? [];
+    }
   }
 
   // Fetch roster data when on roster tab
@@ -544,17 +651,14 @@ export default async function CohortHomePage({
     schools: Array.isArray(raw.schools) ? (raw.schools[0] ?? null) : raw.schools,
   };
 
-  const tabs = [
-    { key: "home", label: "Home" },
-    ...(canViewContent ? [{ key: "modules", label: "Modules" }] : []),
-    ...(canViewContent ? [{ key: "assignments", label: "Assignments" }] : []),
-    ...(canViewContent ? [{ key: "surveys", label: "Surveys" }] : []),
-    ...(canViewContent ? [{ key: "classroom", label: "Classroom" }] : []),
-    ...(canViewContent ? [{ key: "grades", label: "Grades" }] : []),
-    ...(canViewContent ? [{ key: "career_path", label: "Career Path" }] : []),
-    ...((isApprovedEnrolled || isBioAdminViewing) ? [{ key: "certificates", label: "Certificates" }] : []),
-    ...(canViewContent ? [{ key: "roster", label: "Roster", badge: canManage ? pendingCount : 0 }] : []),
-  ];
+  const tabs = buildCohortTabs({
+    canViewContent,
+    canManage,
+    isApprovedEnrolled,
+    isBioAdminViewing,
+    pendingCount,
+    ungradedTotalCount,
+  });
 
   // ── Grades tab computed values ──
   const gradesTotal = myGrades.reduce((s, g) => s + (g.assignments?.max_points ?? 0), 0);
@@ -688,8 +792,14 @@ export default async function CohortHomePage({
               </p>
             </PortalCard>
           )
+        ) : tab === "modules" && canViewContent && moduleId ? (
+          <ModuleDetailBody cohortId={cohortId} moduleId={moduleId} />
+
         ) : tab === "modules" && canViewContent ? (
           <ModuleList cohortId={cohortId} modules={modules} canManage={canManage} backHref={backHref ?? undefined} />
+
+        ) : tab === "assignments" && canViewContent && assignmentId ? (
+          <AssignmentDetailBody cohortId={cohortId} assignmentId={assignmentId} />
 
         ) : tab === "assignments" && canViewContent ? (
           <AssignmentsTabContent
@@ -710,6 +820,84 @@ export default async function CohortHomePage({
             initialRecordings={classroomRecordings}
             canManage={canManage}
           />
+
+        ) : tab === "grades" && canViewContent && canManage ? (
+          <div className="space-y-4">
+            {/* Class-wide summary */}
+            <PortalCard>
+              <div className="flex flex-wrap gap-8">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bio-text-muted">Class average</p>
+                  <p className="mt-1 text-3xl font-bold text-bio-green">
+                    {classGrades.filter((c) => c.pct != null).length > 0
+                      ? `${Math.round(
+                          classGrades.filter((c) => c.pct != null).reduce((s, c) => s + (c.pct ?? 0), 0) /
+                            classGrades.filter((c) => c.pct != null).length,
+                        )}%`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bio-text-muted">Participants</p>
+                  <p className="mt-1 text-3xl font-bold text-bio-green">{classGrades.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bio-text-muted">Graded so far</p>
+                  <p className="mt-1 text-3xl font-bold text-bio-green">
+                    {classGrades.filter((c) => c.pct != null).length}
+                  </p>
+                </div>
+              </div>
+            </PortalCard>
+
+            {/* Per-student breakdown */}
+            <PortalCard>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">Individual grades</h2>
+                <Link
+                  href={`/cohorts/${cohortId}?tab=roster`}
+                  className="text-xs font-medium text-bio-green hover:underline"
+                >
+                  View full breakdown in Roster →
+                </Link>
+              </div>
+              {classGrades.length === 0 ? (
+                <p className="text-sm text-bio-text-muted">No approved participants yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-card-border text-left text-xs text-bio-text-muted">
+                        <th className="pb-2 pr-4 font-medium">Student</th>
+                        <th className="pb-2 pr-4 font-medium">Score</th>
+                        <th className="pb-2 pr-4 font-medium">%</th>
+                        <th className="pb-2 font-medium">Grade</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-card-border">
+                      {classGrades.map((c) => (
+                        <tr key={c.userId}>
+                          <td className="py-3 pr-4 font-medium text-bio-text">{c.name}</td>
+                          <td className="py-3 pr-4 text-bio-text">{c.earned} / {c.max}</td>
+                          <td className="py-3 pr-4 text-bio-text-muted">{c.pct != null ? `${c.pct}%` : "—"}</td>
+                          <td className="py-3">
+                            <span className={`font-semibold ${
+                              c.pct == null ? "text-bio-text-muted"
+                              : c.pct >= 90 ? "text-bio-green"
+                              : c.pct >= 70 ? "text-amber-600"
+                              : "text-red-500"
+                            }`}>
+                              {letterGrade(c.pct)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </PortalCard>
+          </div>
 
         ) : tab === "grades" && canViewContent ? (
           <div className="space-y-4">
@@ -761,7 +949,7 @@ export default async function CohortHomePage({
                             <td className="py-3 pr-4 font-medium text-bio-text">
                               {item ? (
                                 <Link
-                                  href={`/cohorts/${cohortId}/modules/${item.module_id}${backHref ? `?back=${encodeURIComponent(backHref)}` : ""}`}
+                                  href={`/cohorts/${cohortId}?tab=modules&moduleId=${item.module_id}${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`}
                                   className="hover:text-bio-green hover:underline"
                                 >
                                   {item.title}

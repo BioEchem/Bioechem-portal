@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { GraduationCap } from "lucide-react";
+import { formatShortDate as computeFormatDate } from "@/lib/format/date";
 
 type CohortRow = {
   id: string;
@@ -22,8 +23,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d ? computeFormatDate(d) : "—";
 }
 
 export function AdminCohortsTable({

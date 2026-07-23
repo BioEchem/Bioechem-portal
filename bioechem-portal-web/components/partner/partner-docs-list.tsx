@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
+import { formatBytes } from "@/lib/format/bytes";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Doc = {
   id: string;
@@ -26,16 +28,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   report:  "bg-blue-50 text-blue-700",
   impact:  "bg-bio-green/10 text-bio-green",
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function PartnerDocsList({ docs }: { docs: Doc[] }) {
   const [downloading, setDownloading] = useState<string | null>(null);

@@ -37,6 +37,7 @@ export function AdminApprovalsView({ rows: initialRows }: { rows: ApprovalUserRo
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [confirmingApproveId, setConfirmingApproveId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +124,7 @@ export function AdminApprovalsView({ rows: initialRows }: { rows: ApprovalUserRo
       );
       setRejectingId(null);
       setRejectionReason("");
+      setConfirmingApproveId(null);
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -273,6 +275,7 @@ export function AdminApprovalsView({ rows: initialRows }: { rows: ApprovalUserRo
                 {pageRows.map((r) => {
                   const busy = busyId === r.id;
                   const rejecting = rejectingId === r.id;
+                  const confirmingApprove = confirmingApproveId === r.id;
                   return (
                     <Fragment key={r.id}>
                       <tr className="border-b border-card-border/60 hover:bg-bio-mint/10 transition-colors">
@@ -294,24 +297,24 @@ export function AdminApprovalsView({ rows: initialRows }: { rows: ApprovalUserRo
                         <td className="py-2">
                           <div className="flex flex-wrap items-center justify-end gap-2">
                             {r.approvalStatus === "pending" ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={busy || rejecting}
-                                  onClick={() => void handleAction(r.id, "approve")}
-                                  className="inline-flex h-8 items-center rounded-lg bg-bio-green px-3 text-xs font-medium text-white transition-colors hover:bg-bio-green-dark disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {busy && !rejecting ? "Saving…" : "Approve"}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busy || rejecting}
-                                  onClick={() => startReject(r.id)}
-                                  className="inline-flex h-8 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  Reject
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                disabled={busy || rejecting || confirmingApprove}
+                                onClick={() => setConfirmingApproveId(r.id)}
+                                className="inline-flex h-8 items-center rounded-lg bg-bio-green px-3 text-xs font-medium text-white transition-colors hover:bg-bio-green-dark disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Approve
+                              </button>
+                            ) : null}
+                            {r.approvalStatus === "pending" ? (
+                              <button
+                                type="button"
+                                disabled={busy || rejecting}
+                                onClick={() => startReject(r.id)}
+                                className="inline-flex h-8 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Reject
+                              </button>
                             ) : null}
                             <Link
                               href={`/admin/users/${r.id}`}
@@ -322,6 +325,33 @@ export function AdminApprovalsView({ rows: initialRows }: { rows: ApprovalUserRo
                           </div>
                         </td>
                       </tr>
+                      {confirmingApprove ? (
+                        <tr className="border-b border-card-border/70 bg-bio-mint/20">
+                          <td colSpan={8} className="px-2 py-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="text-sm text-bio-text">
+                                Approve {r.fullName || r.email || "this user"}?
+                              </p>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void handleAction(r.id, "approve")}
+                                className="inline-flex h-8 items-center rounded-lg bg-bio-green px-3 text-xs font-medium text-white transition-colors hover:bg-bio-green-dark disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {busy ? "Saving…" : "Yes, approve"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setConfirmingApproveId(null)}
+                                className="inline-flex h-8 items-center rounded-lg border border-card-border bg-bio-white px-3 text-xs font-medium text-bio-text transition-colors hover:bg-bio-mint disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
                       {rejecting ? (
                         <tr className="border-b border-card-border/70 bg-red-50/40">
                           <td colSpan={8} className="px-2 py-3">

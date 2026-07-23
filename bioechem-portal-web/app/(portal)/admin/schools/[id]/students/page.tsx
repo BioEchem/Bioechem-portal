@@ -7,6 +7,7 @@ import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { FilterBar } from "@/components/admin/filter-bar";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { requireSession } from "@/lib/auth/session";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "Students" };
 
@@ -24,10 +25,6 @@ const APPROVAL_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   rejected: "bg-red-100 text-red-500",
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export default async function SchoolStudentsPage({
   params,

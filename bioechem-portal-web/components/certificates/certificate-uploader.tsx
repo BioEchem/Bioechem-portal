@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { Upload, X, ExternalLink, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getShortInitials as getInitials } from "@/lib/profile/display";
+import { formatShortDate } from "@/lib/format/date";
 
 type Student = {
   user_id: string;
@@ -25,11 +27,6 @@ type Props = {
   students: Student[];
   initialCerts: CertificateRow[];
 };
-
-function getInitials(name: string | null, email: string | null) {
-  const src = name ?? email ?? "?";
-  return src.slice(0, 2).toUpperCase();
-}
 
 // Upload form for a single student — shown inline when admin clicks "Upload"
 function StudentCertUploadForm({
@@ -264,7 +261,7 @@ export function CertificateUploader({ cohortId, students, initialCerts }: Props)
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-bio-text truncate">{cert.title}</p>
                         <p className="text-[11px] text-bio-text-muted">
-                          {cert.filename ?? "certificate"} · Uploaded {new Date(cert.uploaded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {cert.filename ?? "certificate"} · Uploaded {formatShortDate(cert.uploaded_at)}
                         </p>
                       </div>
                     </div>

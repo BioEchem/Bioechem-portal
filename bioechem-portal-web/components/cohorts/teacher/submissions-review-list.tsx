@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle, ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
+import { formatShortDateTime as fmt } from "@/lib/format/date";
 
 type SubmissionRow = {
   id: string;
@@ -17,12 +18,6 @@ type SubmissionRow = {
 
 type GradeState = { points_earned: number | null; feedback: string | null; graded_at: string };
 
-function fmt(d: string) {
-  return new Date(d).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-  });
-}
-
 function SubmissionCard({
   cohortId,
   submission: init,
@@ -34,6 +29,7 @@ function SubmissionCard({
 }) {
   const [submission, setSubmission] = useState(init);
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(init.grades == null);
   const [points, setPoints] = useState<string>(
     submission.grades?.points_earned != null ? String(submission.grades.points_earned) : "",
   );
@@ -41,6 +37,21 @@ function SubmissionCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  function startEdit() {
+    setPoints(submission.grades?.points_earned != null ? String(submission.grades.points_earned) : "");
+    setFeedback(submission.grades?.feedback ?? "");
+    setError(null);
+    setSaved(false);
+    setIsEditing(true);
+  }
+
+  function cancelEdit() {
+    setPoints(submission.grades?.points_earned != null ? String(submission.grades.points_earned) : "");
+    setFeedback(submission.grades?.feedback ?? "");
+    setError(null);
+    setIsEditing(false);
+  }
 
   async function saveGrade(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +73,7 @@ function SubmissionCard({
         setSubmission((prev) => ({ ...prev, grades: json.data! }));
       }
       setSaved(true);
+      setIsEditing(false);
     } catch {
       setError("Network error.");
     } finally {
@@ -156,41 +168,77 @@ function SubmissionCard({
             </div>
           ) : null}
 
-          <form onSubmit={(e) => void saveGrade(e)} className="space-y-3 border-t border-card-border pt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-bio-text-muted">Grade</p>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                min={0}
-                max={maxPoints}
-                step="0.5"
-                value={points}
-                onChange={(e) => setPoints(e.target.value)}
-                placeholder="Points"
-                className="w-24 rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
-              />
-              <span className="text-sm text-bio-text-muted">/ {maxPoints}</span>
-              {pct != null ? (
-                <span className="text-sm text-bio-text-muted">({pct}%)</span>
-              ) : null}
+          {!isEditing && grade ? (
+            <div className="space-y-3 border-t border-card-border pt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-bio-text-muted">Grade</p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-bio-text">
+                  {grade.points_earned ?? "—"} / {maxPoints}
+                </span>
+                {pct != null ? <span className="text-sm text-bio-text-muted">({pct}%)</span> : null}
+              </div>
+              {grade.feedback ? (
+                <p className="whitespace-pre-wrap text-sm text-bio-text-muted">{grade.feedback}</p>
+              ) : (
+                <p className="text-sm text-bio-text-muted/60 italic">No feedback given.</p>
+              )}
+              {saved ? <p className="text-sm text-bio-green">Grade saved.</p> : null}
+              <button
+                type="button"
+                onClick={startEdit}
+                className="rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-bio-text hover:border-bio-green/40 hover:text-bio-green"
+              >
+                Update grade
+              </button>
             </div>
-            <textarea
-              placeholder="Feedback (optional)"
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
-            />
-            {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            {saved ? <p className="text-sm text-bio-green">Grade saved.</p> : null}
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-lg bg-bio-green px-4 py-2 text-sm font-medium text-white hover:bg-bio-green/90 disabled:opacity-40"
-            >
-              {loading ? "Saving…" : grade ? "Update grade" : "Save grade"}
-            </button>
-          </form>
+          ) : (
+            <form onSubmit={(e) => void saveGrade(e)} className="space-y-3 border-t border-card-border pt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-bio-text-muted">Grade</p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={maxPoints}
+                  step="0.5"
+                  value={points}
+                  onChange={(e) => setPoints(e.target.value)}
+                  placeholder="Points"
+                  className="w-24 rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+                />
+                <span className="text-sm text-bio-text-muted">/ {maxPoints}</span>
+                {pct != null ? (
+                  <span className="text-sm text-bio-text-muted">({pct}%)</span>
+                ) : null}
+              </div>
+              <textarea
+                placeholder="Feedback (optional)"
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-bio-text placeholder:text-bio-text-muted focus:outline-none focus:ring-2 focus:ring-bio-green/50"
+              />
+              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="rounded-lg bg-bio-green px-4 py-2 text-sm font-medium text-white hover:bg-bio-green/90 disabled:opacity-40"
+                >
+                  {loading ? "Saving…" : grade ? "Save changes" : "Save grade"}
+                </button>
+                {grade ? (
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    disabled={loading}
+                    className="rounded-lg border border-card-border px-4 py-2 text-sm text-bio-text-muted hover:text-bio-text disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+            </form>
+          )}
         </div>
       ) : null}
     </div>

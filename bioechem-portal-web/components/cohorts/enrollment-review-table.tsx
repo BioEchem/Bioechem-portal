@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, X, ShieldOff } from "lucide-react";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export type ReviewableEnrollment = {
   id: string;
@@ -22,12 +23,6 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-red-100 text-red-600",
   dropped: "bg-bio-text-muted/10 text-bio-text-muted",
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
-}
 
 export function EnrollmentReviewTable({
   title,

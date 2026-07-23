@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { requireSession } from "@/lib/auth/session";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "Assignments" };
 
@@ -15,10 +16,6 @@ type AssignmentRow = {
   cohorts: { name: string } | null;
   submissions: { id: string; submitted_at: string }[] | null;
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export default async function AssignmentsPage() {
   const { supabase, user } = await requireSession({ requireApproved: true });
@@ -61,7 +58,7 @@ export default async function AssignmentsPage() {
       <div className="divide-y divide-card-border">
         {rows.map((a) => {
           const item = a.module_items;
-          const href = item ? `/cohorts/${a.cohort_id}/assignments/${a.id}` : "#";
+          const href = item ? `/cohorts/${a.cohort_id}?tab=assignments&assignmentId=${a.id}` : "#";
           const submitted = hasSubmission(a);
           const overdue = !submitted && a.due_at && new Date(a.due_at) < now;
           return (

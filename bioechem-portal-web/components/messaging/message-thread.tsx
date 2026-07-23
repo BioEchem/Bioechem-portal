@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send } from "lucide-react";
+import { getShortInitials as getInitials } from "@/lib/profile/display";
 
 type Message = {
   id: string;
@@ -26,11 +27,6 @@ function formatTime(iso: string) {
   }
   return d.toLocaleDateString([], { month: "short", day: "numeric" }) +
     " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function getInitials(name: string | null, email: string | null) {
-  const src = name ?? email ?? "?";
-  return src.slice(0, 2).toUpperCase();
 }
 
 export function MessageThread({ userId, isAdminView = false, contactName }: Props) {

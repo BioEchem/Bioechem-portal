@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pin, Users } from "lucide-react";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Announcement = {
   id: string;
@@ -20,10 +21,6 @@ const ROLE_OPTIONS = [
   { value: "industry_partner", label: "Industry partners" },
   { value: "shareholder", label: "Shareholders" },
 ] as const;
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function AudienceBadge({ visibleTo }: { visibleTo: string[] }) {
   if (!visibleTo || visibleTo.length === 0) return null;

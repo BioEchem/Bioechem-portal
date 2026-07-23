@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, MessageSquarePlus, UserCheck, X, ExternalLink, ArrowLeft } from "lucide-react";
 import { getRoleLabel } from "@/lib/profile/display";
 import { MessageThread } from "@/components/messaging/message-thread";
+import { getShortInitials as getInitials } from "@/lib/profile/display";
 
 type ProfileEntry = { full_name: string | null; email: string | null; role: string | null };
 
@@ -35,11 +36,6 @@ function timeAgo(iso: string | null) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
   return `${Math.floor(hrs / 24)}d`;
-}
-
-function getInitials(name: string | null, email: string | null) {
-  const src = name ?? email ?? "?";
-  return src.slice(0, 2).toUpperCase();
 }
 
 function handlerLabel(handler: ProfileEntry | null) {

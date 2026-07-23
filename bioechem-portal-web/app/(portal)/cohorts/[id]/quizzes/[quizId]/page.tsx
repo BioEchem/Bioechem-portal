@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
+import { CohortTabs } from "@/components/cohorts/cohort-tabs";
 import { QuizTakeForm } from "@/components/cohorts/quiz-take-form";
 import { QuizSubmissionsReviewList } from "@/components/cohorts/teacher/quiz-submissions-review-list";
 import { requireSession } from "@/lib/auth/session";
+import { buildCohortTabs } from "@/lib/cohorts/tabs";
 import type { QuizAnswers, QuizQuestion } from "@/lib/quiz/types";
 
 export const metadata: Metadata = { title: "Quiz" };
@@ -96,11 +98,19 @@ export default async function QuizPage({
 
   const isOverdue = quiz.due_at ? new Date(quiz.due_at) < new Date() : false;
 
+  const tabs = buildCohortTabs({
+    canViewContent: canManage || isParticipant,
+    canManage,
+    isApprovedEnrolled: isParticipant,
+  });
+
   return (
     <PortalPage title={item?.title ?? "Quiz"}>
       <div className="space-y-4">
+        <CohortTabs tabs={tabs} activeTab="modules" cohortId={cohortId} />
+
         <Link
-          href={`/cohorts/${cohortId}/modules/${item?.module_id}`}
+          href={`/cohorts/${cohortId}?tab=modules&moduleId=${item?.module_id}`}
           className="flex items-center gap-1 text-sm text-bio-text-muted hover:text-bio-green"
         >
           <ChevronLeft className="h-4 w-4" /> Back to module

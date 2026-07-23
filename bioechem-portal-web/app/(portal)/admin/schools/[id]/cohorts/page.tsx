@@ -7,6 +7,7 @@ import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { FilterBar } from "@/components/admin/filter-bar";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { requireSession } from "@/lib/auth/session";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "Cohorts" };
 
@@ -24,10 +25,6 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "bg-amber-100 text-amber-700",
   archived: "bg-bio-text-muted/10 text-bio-text-muted",
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export default async function SchoolCohortsPage({
   params,

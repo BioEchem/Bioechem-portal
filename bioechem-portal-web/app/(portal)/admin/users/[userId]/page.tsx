@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Mail, Building2, Calendar, FileText, GraduationCap, MessageSquare, ChevronLeft, LayoutDashboard } from "lucide-react";
+import { Mail, Building2, Calendar, FileText, GraduationCap, ChevronLeft, LayoutDashboard } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
@@ -151,7 +151,6 @@ export default async function AdminUserProfilePage({
             <AdminProfileActions
               profileId={profile.id}
               approvalStatus={profile.approval_status}
-              messagingHref={`/messaging?user=${profile.id}`}
             />
           </div>
         </PortalCard>
@@ -275,25 +274,20 @@ export default async function AdminUserProfilePage({
         )}
 
         {/* Quick actions */}
-        <PortalCard>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">Quick actions</h3>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/dashboard?as=${profile.id}`}
-              className="flex items-center gap-2 rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-bio-text hover:bg-bio-surface transition-colors"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              View dashboard as user
-            </Link>
-            <Link
-              href={`/messaging?user=${profile.id}`}
-              className="flex items-center gap-2 rounded-lg bg-bio-green px-4 py-2 text-sm font-medium text-white hover:bg-bio-green/90 transition-colors"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Open messages
-            </Link>
-          </div>
-        </PortalCard>
+        {profile.approval_status === "approved" && (
+          <PortalCard>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-bio-green">Quick actions</h3>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href={`/dashboard?as=${profile.id}`}
+                className="flex items-center gap-2 rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-bio-text hover:bg-bio-surface transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                View dashboard as user
+              </Link>
+            </div>
+          </PortalCard>
+        )}
       </div>
     </PortalPage>
   );

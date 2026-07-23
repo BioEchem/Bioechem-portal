@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Briefcase, Building2, Calendar, CheckCircle, Clock, MapPin, X } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Job = {
   id: string;
@@ -29,10 +30,6 @@ const STATUS_STYLES: Record<string, string> = {
   accepted: "bg-bio-green/10 text-bio-green border-bio-green/30",
   rejected: "bg-red-50 text-red-700 border-red-200",
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function ApplyModal({ job, onClose, onApplied }: { job: Job; onClose: () => void; onApplied: () => void }) {
   const [coverLetter, setCoverLetter] = useState("");

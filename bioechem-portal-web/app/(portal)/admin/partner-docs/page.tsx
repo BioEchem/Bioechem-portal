@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, FileStack, FileText, Loader2, Trash2, Upload, X
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { AdminPartnerFolderBrowser } from "@/components/partner/partner-folder-browser";
 import { AdminPartnerAnnouncements } from "@/components/partner/admin-partner-announcements";
+import { formatBytes } from "@/lib/format/bytes";
 
 type DocRow = {
   id: string;
@@ -23,12 +24,6 @@ const CATEGORIES = [
   { value: "report",  label: "Report" },
   { value: "impact",  label: "Impact" },
 ];
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 function DocForm({
   initial,

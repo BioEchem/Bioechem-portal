@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, FileText, Folder, Loader2, Mail, Upload, X } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
 import { PARTNER_FOLDER_CATEGORIES, partnerTypeLabel } from "@/lib/partner/folder-categories";
+import { formatBytes } from "@/lib/format/bytes";
 
 type PartnerSummary = {
   id: string;
@@ -23,12 +24,6 @@ type FolderDoc = {
   mime_type: string | null;
   created_at: string;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 /** Admin-side browser: pick a partner, then upload/view docs by category. */
 export function AdminPartnerFolderBrowser() {

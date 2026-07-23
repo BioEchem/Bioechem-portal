@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Calendar, Users } from "lucide-react";
 import { EnrollButton } from "./enroll-button";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Cohort = {
   id: string;
@@ -17,10 +18,6 @@ type Cohort = {
 };
 
 type Enrollment = { cohort_id: string; role: string; status: string } | null;
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function CohortBrowseCard({
   cohort,

@@ -6,3 +6,14 @@ export function formatShortDate(value: string | Date): string {
     day: "numeric",
   });
 }
+
+/** Short locale date + time (e.g. "Jun 1, 2026, 3:45 PM"). */
+export function formatShortDateTime(value: string | Date): string {
+  return new Date(value).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

@@ -50,7 +50,7 @@ export function AdminPortalDashboard({ user, summary }: AdminPortalDashboardProp
                 )}
                 {summary.pendingEnrollments > 0 && (
                   <Link
-                    href={AUTH_ROUTES.adminCohorts}
+                    href={AUTH_ROUTES.adminPendingEnrollments}
                     className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition-colors hover:border-red-400 hover:bg-red-50"
                   >
                     <span>
@@ -105,6 +105,49 @@ export function AdminPortalDashboard({ user, summary }: AdminPortalDashboardProp
               ])}
               emptyMessage="No users are waiting for approval."
             />
+          </div>
+        </PortalCard>
+
+        <PortalCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">
+                Grading pending
+              </h2>
+              <p className="mt-2 text-sm text-bio-text-muted">
+                Assignments across your cohorts with submissions still waiting to be graded.
+              </p>
+            </div>
+            {summary.pendingGradingItems.length > 0 && (
+              <Link
+                href={AUTH_ROUTES.adminPendingGrading}
+                className="bio-btn-primary inline-flex shrink-0"
+              >
+                View all
+              </Link>
+            )}
+          </div>
+          <div className="mt-4">
+            {summary.pendingGradingItems.length === 0 ? (
+              <p className="text-sm text-bio-text-muted">No submissions are waiting for grading right now.</p>
+            ) : (
+              <ul className="space-y-2">
+                {summary.pendingGradingItems.map((item) => (
+                  <li key={item.assignmentId}>
+                    <Link
+                      href={`/cohorts/${item.cohortId}?tab=assignments&assignmentId=${item.assignmentId}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-card-border px-4 py-2.5 text-sm transition-colors hover:border-bio-green/40 hover:bg-bio-mint/10"
+                    >
+                      <span className="text-bio-text">
+                        <strong>{item.assignmentTitle}</strong> in {item.cohortName} is waiting for grading for{" "}
+                        <strong>{item.studentCount}</strong> student{item.studentCount !== 1 ? "s" : ""}
+                      </span>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-bio-text-muted" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </PortalCard>
 

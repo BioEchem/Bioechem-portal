@@ -2,20 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { CheckCircle, XCircle, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 
 type Props = {
   profileId: string;
   approvalStatus: string;
-  messagingHref: string;
 };
 
-export function AdminProfileActions({ profileId, approvalStatus, messagingHref }: Props) {
+export function AdminProfileActions({ profileId, approvalStatus }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(approvalStatus);
+  const [confirmingApprove, setConfirmingApprove] = useState(false);
 
   async function act(action: "approve" | "reject") {
     setBusy(true);
@@ -32,7 +31,37 @@ export function AdminProfileActions({ profileId, approvalStatus, messagingHref }
       return;
     }
     setStatus(action === "approve" ? "approved" : "rejected");
+    setConfirmingApprove(false);
     router.refresh();
+  }
+
+  if (confirmingApprove) {
+    return (
+      <div className="flex flex-col gap-2 sm:items-end">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bio-green/30 bg-bio-mint/30 px-3 py-2">
+          <span className="text-sm text-bio-text">
+            {status === "rejected" ? "Reverse rejection and approve this user?" : "Approve this user?"}
+          </span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void act("approve")}
+            className="rounded-lg bg-bio-green px-3 py-1.5 text-xs font-medium text-white hover:bg-bio-green/90 disabled:opacity-60 transition-colors"
+          >
+            {busy ? "Saving…" : "Yes, approve"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirmingApprove(false)}
+            className="rounded-lg border border-card-border px-3 py-1.5 text-xs font-medium text-bio-text-muted hover:text-bio-text disabled:opacity-60 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
+    );
   }
 
   return (
@@ -42,11 +71,11 @@ export function AdminProfileActions({ profileId, approvalStatus, messagingHref }
           <button
             type="button"
             disabled={busy}
-            onClick={() => void act("approve")}
+            onClick={() => setConfirmingApprove(true)}
             className="flex items-center gap-1.5 rounded-lg bg-bio-green px-3 py-1.5 text-sm font-medium text-white hover:bg-bio-green/90 disabled:opacity-60 transition-colors"
           >
             <CheckCircle className="h-4 w-4" />
-            {busy ? "Saving…" : "Approve"}
+            Approve
           </button>
         )}
         {status !== "rejected" && (
@@ -60,13 +89,6 @@ export function AdminProfileActions({ profileId, approvalStatus, messagingHref }
             {busy ? "Saving…" : "Reject"}
           </button>
         )}
-        <Link
-          href={messagingHref}
-          className="flex items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-sm font-medium text-bio-text-muted hover:bg-bio-mint/30 transition-colors"
-        >
-          <MessageSquare className="h-4 w-4" />
-          Message
-        </Link>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>

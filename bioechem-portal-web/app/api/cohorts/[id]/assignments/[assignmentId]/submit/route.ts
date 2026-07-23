@@ -81,12 +81,12 @@ export async function POST(req: Request, { params }: Params) {
   void (async () => {
     const [studentRes, cohortRes, assignmentRes, teacherRes] = await Promise.all([
       supabase.from("profiles").select("full_name, email").eq("id", user.id).single(),
-      supabase.from("cohorts").select("title").eq("id", cohortId).single(),
+      supabase.from("cohorts").select("name").eq("id", cohortId).single(),
       supabase.from("assignments").select("module_item_id, module_items(title)").eq("id", assignmentId).single(),
       supabase.from("cohort_enrollments").select("profiles(email, full_name)").eq("cohort_id", cohortId).eq("role", "teacher").eq("status", "approved"),
     ]);
     const studentName = (studentRes.data?.full_name as string | null) ?? (studentRes.data?.email as string | null) ?? "A student";
-    const cohortName = (cohortRes.data?.title as string | null) ?? "the cohort";
+    const cohortName = (cohortRes.data?.name as string | null) ?? "the cohort";
     const assignmentTitle = (assignmentRes.data?.module_items as unknown as { title: string } | null)?.title ?? "an assignment";
     const teachers = (teacherRes.data ?? []).flatMap((e) => {
       const p = e.profiles as unknown as { email: string | null; full_name: string | null } | null;

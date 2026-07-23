@@ -14,6 +14,7 @@ import {
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { requireSession } from "@/lib/auth/session";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "School overview" };
 
@@ -47,14 +48,6 @@ type EnrolledRow = {
   profiles: { full_name: string | null; email: string | null } | null;
   cohorts: { name: string } | null;
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-bio-green/10 text-bio-green",

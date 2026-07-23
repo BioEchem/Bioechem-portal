@@ -17,6 +17,7 @@ type TeacherStats = {
   classCount: number;
   studentCount: number;
   assignmentCount: number;
+  pendingGradingCount: number;
 };
 
 type TeacherDashboardProps = {
@@ -39,12 +40,15 @@ export function TeacherDashboard({ user, stats }: TeacherDashboardProps) {
           { label: "Classes", value: stats.classCount },
           { label: "Students", value: stats.studentCount },
           { label: "Assignments", value: stats.assignmentCount },
+          { label: "Pending grading", value: stats.pendingGradingCount, highlight: stats.pendingGradingCount > 0 },
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-card-border bg-bio-white px-5 py-3 text-center"
+            className={`rounded-xl border px-5 py-3 text-center ${
+              s.highlight ? "border-amber-300 bg-amber-50" : "border-card-border bg-bio-white"
+            }`}
           >
-            <p className="text-2xl font-bold text-bio-green">{s.value}</p>
+            <p className={`text-2xl font-bold ${s.highlight ? "text-amber-700" : "text-bio-green"}`}>{s.value}</p>
             <p className="text-xs text-bio-text-muted">{s.label}</p>
           </div>
         ))}

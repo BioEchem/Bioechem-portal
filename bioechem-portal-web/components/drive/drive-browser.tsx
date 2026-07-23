@@ -17,6 +17,8 @@ import {
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatBytes } from "@/lib/format/bytes";
+import { formatShortDate as formatDate } from "@/lib/format/date";
 
 type DriveItem = {
   id: string;
@@ -34,17 +36,6 @@ type BreadcrumbEntry = { id: string | null; name: string };
 
 // Position of the active dropdown menu (screen coords)
 type MenuPosition = { top: number; right: number };
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function FileIcon({ mimeType }: { mimeType: string | null }) {
   if (!mimeType) return <File className="h-5 w-5 text-bio-text-muted" />;

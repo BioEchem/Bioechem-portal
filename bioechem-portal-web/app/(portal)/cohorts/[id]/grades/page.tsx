@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { requireSession } from "@/lib/auth/session";
+import { letterGrade as computeLetterGrade, pct } from "@/lib/grades/format";
 
 export const metadata: Metadata = { title: "Grades" };
 
@@ -39,18 +40,8 @@ const TYPE_COLORS: Record<string, string> = {
   other: "bg-gray-100 text-gray-600",
 };
 
-function pct(earned: number | null, max: number | null) {
-  if (earned == null || max == null || max === 0) return null;
-  return Math.round((earned / max) * 100);
-}
-
-function letterGrade(p: number | null) {
-  if (p == null) return "—";
-  if (p >= 90) return "A";
-  if (p >= 80) return "B";
-  if (p >= 70) return "C";
-  if (p >= 60) return "D";
-  return "F";
+function letterGrade(p: number | null): string {
+  return computeLetterGrade(p) ?? "—";
 }
 
 function gradeColor(p: number | null) {
@@ -92,7 +83,7 @@ function GradeTable({ rows, cohortId, showLetter = true }: {
                 <td className="py-3 pr-4 font-medium text-bio-text">
                   {item ? (
                     <Link
-                      href={`/cohorts/${cohortId}/modules/${item.module_id}`}
+                      href={`/cohorts/${cohortId}?tab=modules&moduleId=${item.module_id}`}
                       className="hover:text-bio-green hover:underline"
                     >
                       {item.title}

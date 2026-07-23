@@ -33,8 +33,18 @@ export async function updateUserApproval(
     return { ok: false, message: "User not found.", status: 404 };
   }
 
-  if (existing.approval_status !== "pending") {
-    return { ok: false, message: "User is not pending approval.", status: 409 };
+  // Approving is also how a mistaken rejection gets reversed, so allow it
+  // from "pending" or "rejected". Rejecting only makes sense from "pending".
+  const allowedFrom = input.action === "approve" ? ["pending", "rejected"] : ["pending"];
+  if (!allowedFrom.includes(existing.approval_status)) {
+    return {
+      ok: false,
+      message:
+        input.action === "approve"
+          ? "User is already approved."
+          : "User is not pending approval.",
+      status: 409,
+    };
   }
 
   const now = new Date().toISOString();

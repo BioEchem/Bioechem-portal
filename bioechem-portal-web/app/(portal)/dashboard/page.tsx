@@ -15,6 +15,7 @@ import { loadAdminDashboardSummary } from "@/lib/dashboard/admin-summary";
 import { loadSchoolAdminDashboard } from "@/lib/dashboard/school-admin-data";
 import { loadShareholderDashboardData } from "@/lib/dashboard/shareholder-data";
 import { loadPartnerDashboardData } from "@/lib/dashboard/partner-data";
+import { loadParticipantDashboardData } from "@/lib/dashboard/participant-data";
 import {
   buildDashboardUserContext,
   type DashboardProfileRow,
@@ -169,8 +170,9 @@ export default async function DashboardPage({
     const cohortIds = (teacherEnrollments ?? []).map((e) => e.cohort_id as string);
     let studentCount = 0;
     let assignmentCount = 0;
+    let pendingGradingCount = 0;
     if (cohortIds.length > 0) {
-      const [studentRes, assignmentRes] = await Promise.all([
+      const [studentRes, assignmentRes, gradableAssignmentsRes] = await Promise.all([
         dataClient
           .from("cohort_enrollments")
           .select("id", { count: "exact", head: true })
@@ -181,9 +183,30 @@ export default async function DashboardPage({
           .from("assignments")
           .select("id", { count: "exact", head: true })
           .in("cohort_id", cohortIds),
+        dataClient
+          .from("assignments")
+          .select("id")
+          .in("cohort_id", cohortIds)
+          .eq("requires_grading", true),
       ]);
       studentCount = studentRes.count ?? 0;
       assignmentCount = assignmentRes.count ?? 0;
+
+      const gradableAssignmentIds = (gradableAssignmentsRes.data ?? []).map((a) => a.id as string);
+      if (gradableAssignmentIds.length > 0) {
+        const [submissionsRes, gradesRes] = await Promise.all([
+          dataClient
+            .from("submissions")
+            .select("id")
+            .in("assignment_id", gradableAssignmentIds),
+          dataClient
+            .from("grades")
+            .select("submission_id")
+            .in("cohort_id", cohortIds),
+        ]);
+        const gradedSubmissionIds = new Set((gradesRes.data ?? []).map((g) => g.submission_id as string));
+        pendingGradingCount = (submissionsRes.data ?? []).filter((s) => !gradedSubmissionIds.has(s.id as string)).length;
+      }
     }
 
     return (
@@ -191,7 +214,7 @@ export default async function DashboardPage({
         {adminBanner}
         <TeacherDashboard
           user={userContext}
-          stats={{ classCount: cohortIds.length, studentCount, assignmentCount }}
+          stats={{ classCount: cohortIds.length, studentCount, assignmentCount, pendingGradingCount }}
         />
       </PortalPage>
     );
@@ -232,6 +255,8 @@ export default async function DashboardPage({
     .map((row) => getCohortDisplayName(row.cohorts))
     .filter((name): name is string => !!name);
 
+  const participantData = await loadParticipantDashboardData(dataClient, targetUserId);
+
   return (
     <PortalPage title="Dashboard" description={dashboardDescription}>
       {adminBanner}
@@ -239,6 +264,7 @@ export default async function DashboardPage({
         user={userContext}
         profileCompletion={profileCompletion}
         pendingCohortNames={pendingCohortNames}
+        data={participantData}
       />
     </PortalPage>
   );

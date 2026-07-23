@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Download, Megaphone } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
+import { formatBytes } from "@/lib/format/bytes";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 type Announcement = {
   id: string;
@@ -14,16 +16,6 @@ type Announcement = {
   mime_type: string | null;
   created_at: string;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function ShareholderAnnouncementsList() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);

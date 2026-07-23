@@ -9,6 +9,8 @@ import { CertificateUploader } from "@/components/certificates/certificate-uploa
 import { CohortsurveysPanel } from "@/components/admin/cohort-surveys-panel";
 import { ArchiveCohortButton } from "@/components/admin/archive-cohort-button";
 import { requireSession } from "@/lib/auth/session";
+import { formatShortDate as fmt } from "@/lib/format/date";
+import { formatShortDateTime as fmtDateTime } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "Cohort overview" };
 
@@ -26,17 +28,6 @@ type GradeRow = {
   points_earned: number | null;
   assignments: { max_points: number } | null;
 };
-
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function fmtDateTime(d: string) {
-  return new Date(d).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit",
-  });
-}
 
 export default async function AdminCohortOverviewPage({
   params,
@@ -282,7 +273,7 @@ export default async function AdminCohortOverviewPage({
                 {modules.map((mod) => (
                   <Link
                     key={mod.id}
-                    href={`/cohorts/${id}/modules/${mod.id}?back=${encodeURIComponent(`/admin/cohorts/${id}`)}`}
+                    href={`/cohorts/${id}?tab=modules&moduleId=${mod.id}&back=${encodeURIComponent(`/admin/cohorts/${id}`)}`}
                     className="flex items-center gap-3 rounded-lg border border-card-border p-3 hover:border-bio-green/40"
                   >
                     <BookOpen className="h-4 w-4 shrink-0 text-bio-green/60" />

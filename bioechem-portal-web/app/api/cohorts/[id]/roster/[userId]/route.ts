@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { letterGrade as computeLetterGrade } from "@/lib/grades/format";
 
 type Params = { params: Promise<{ id: string; userId: string }> };
 
 function letterGrade(p: number | null): string {
-  if (p == null) return "—";
-  if (p >= 90) return "A";
-  if (p >= 80) return "B";
-  if (p >= 70) return "C";
-  if (p >= 60) return "D";
-  return "F";
+  return computeLetterGrade(p) ?? "—";
 }
 
 export async function GET(_req: Request, { params }: Params) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileStack, FileText, Loader2, Trash2, Upload, X } from "lucide-react";
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { AdminShareholderAnnouncements } from "@/components/shareholder/admin-shareholder-announcements";
+import { formatBytes } from "@/lib/format/bytes";
 
 type DocRow = {
   id: string;
@@ -27,12 +28,6 @@ const CATEGORIES = [
   { value: "meeting",    label: "Meeting" },
   { value: "governance", label: "Governance" },
 ];
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 function DocForm({
   initial,

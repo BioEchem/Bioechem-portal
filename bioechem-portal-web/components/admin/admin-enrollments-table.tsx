@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, X } from "lucide-react";
+import { formatShortDate as formatDate } from "@/lib/format/date";
 
 type EnrollmentRow = {
   id: string;
@@ -18,10 +19,6 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-red-100 text-red-600",
   dropped: "bg-bio-text-muted/10 text-bio-text-muted",
 };
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function AdminEnrollmentsTable({
   rows: initialRows,

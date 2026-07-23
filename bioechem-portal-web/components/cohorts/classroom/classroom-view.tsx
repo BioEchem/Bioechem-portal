@@ -7,6 +7,7 @@ import {
   // Link2, // TODO: re-enable with Google Meet auto-creation
 } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
+import { formatShortDate as fmtDate } from "@/lib/format/date";
 
 export type ClassSession = {
   id: string;
@@ -38,10 +39,6 @@ function fmt(iso: string) {
     weekday: "short", month: "short", day: "numeric",
     year: "numeric", hour: "numeric", minute: "2-digit",
   });
-}
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function youtubeEmbedUrl(url: string): string | null {

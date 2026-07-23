@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, FileText, Loader2, Upload } from "lucide-react";
 import { PortalCard } from "@/components/portal/portal-page";
 import { PARTNER_FOLDER_CATEGORIES } from "@/lib/partner/folder-categories";
+import { formatBytes } from "@/lib/format/bytes";
 
 type FolderDoc = {
   id: string;
@@ -16,12 +17,6 @@ type FolderDoc = {
   created_by: string;
   created_at: string;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 /** Partner-side view of their own folder: browse what BioEchem shared, and upload things like a signed W9. */
 export function PartnerOwnFolder({ currentUserId }: { currentUserId: string }) {
