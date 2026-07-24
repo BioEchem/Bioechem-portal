@@ -22,15 +22,19 @@ type Enrollment = { cohort_id: string; role: string; status: string } | null;
 export function CohortBrowseCard({
   cohort,
   enrollment,
+  href,
+  readOnly = false,
 }: {
   cohort: Cohort;
   enrollment: Enrollment;
+  href?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex flex-col rounded-xl border border-card-border bg-card p-5 shadow-[var(--shadow-card)]">
       <div className="flex-1">
         <Link
-          href={`/cohorts/${cohort.id}`}
+          href={href ?? `/cohorts/${cohort.id}`}
           className="text-base font-semibold text-bio-text hover:text-bio-green"
         >
           {cohort.name}
@@ -64,11 +68,25 @@ export function CohortBrowseCard({
       </div>
 
       <div className="mt-4 border-t border-card-border pt-4">
-        <EnrollButton
-          cohortId={cohort.id}
-          enrollment={enrollment ? { role: enrollment.role, status: enrollment.status } : null}
-          requiresApproval={cohort.enrollment_requires_approval}
-        />
+        {readOnly ? (
+          <div className="flex justify-end">
+            {enrollment?.status === "approved" ? (
+              <span className="rounded-full bg-bio-green/10 px-3 py-1 text-xs font-medium text-bio-green">Enrolled</span>
+            ) : enrollment?.status === "pending" ? (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Enrollment pending</span>
+            ) : enrollment?.status === "rejected" ? (
+              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-500">Enrollment rejected</span>
+            ) : (
+              <span className="rounded-full border border-card-border px-3 py-1 text-xs font-medium text-bio-text-muted">Not enrolled</span>
+            )}
+          </div>
+        ) : (
+          <EnrollButton
+            cohortId={cohort.id}
+            enrollment={enrollment ? { role: enrollment.role, status: enrollment.status } : null}
+            requiresApproval={cohort.enrollment_requires_approval}
+          />
+        )}
       </div>
     </div>
   );

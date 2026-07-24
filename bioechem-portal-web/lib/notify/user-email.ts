@@ -426,6 +426,23 @@ export function emailPartnersNewAnnouncement(
   }
 }
 
+/** Sent by an admin to an ad-hoc list of email addresses (e.g. extracted from an uploaded spreadsheet). Not tied to profile records. */
+export function emailBulkRecipients(
+  emails: string[],
+  subject: string,
+  body: string,
+) {
+  for (const email of emails) {
+    sendUserEmail({
+      to: email,
+      subject,
+      html: baseWrapper(`
+        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.6;white-space:pre-wrap">${body}</p>
+      `),
+    }).catch((err) => console.error("[user-email] bulk recipient:", err));
+  }
+}
+
 /** Sent to a participant when the admin sends them a direct message. */
 export function emailUserNewMessage(
   toEmail: string,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileStack, FileText, Loader2, Trash2, Upload, X } from "lucide-react";
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { AdminShareholderAnnouncements } from "@/components/shareholder/admin-shareholder-announcements";
+import { AdminShareholderFolderBrowser } from "@/components/shareholder/shareholder-folder-browser";
 import { formatBytes } from "@/lib/format/bytes";
 
 type DocRow = {
@@ -235,7 +236,7 @@ function DocForm({
 }
 
 export default function AdminShareholderDocsPage() {
-  const [tab, setTab] = useState<"documents" | "announcements">("documents");
+  const [tab, setTab] = useState<"documents" | "folders" | "announcements">("documents");
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -294,6 +295,7 @@ export default function AdminShareholderDocsPage() {
         <div className="flex gap-1 border-b border-card-border">
           {[
             { key: "documents" as const, label: "Documents" },
+            { key: "folders" as const, label: "Shareholder folders" },
             { key: "announcements" as const, label: "Announcements" },
           ].map((t) => (
             <button
@@ -310,7 +312,9 @@ export default function AdminShareholderDocsPage() {
           ))}
         </div>
 
-        {tab === "announcements" ? (
+        {tab === "folders" ? (
+          <AdminShareholderFolderBrowser />
+        ) : tab === "announcements" ? (
           <AdminShareholderAnnouncements />
         ) : (
       <>

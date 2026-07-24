@@ -6,13 +6,6 @@ export type PartnerSchool = {
   name: string;
 };
 
-export type PartnerProgram = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: "active" | "upcoming" | "completed";
-};
-
 export type PartnerEvent = {
   id: string;
   title: string;
@@ -29,13 +22,11 @@ export type PartnerDocument = {
 
 export type PartnerDashboardData = {
   schools: PartnerSchool[];
-  programs: PartnerProgram[];
   upcomingEvents: PartnerEvent[];
   recentDocuments: PartnerDocument[];
 };
 
 type SchoolRow = { id: string; name: string };
-type ProgramRow = { id: string; title: string; description: string | null; status: string };
 type EventRow = { id: string; title: string; event_date: string | null; location: string | null };
 type DocRow = { id: string; title: string; category: string; created_at: string };
 
@@ -43,7 +34,7 @@ type DocRow = { id: string; title: string; category: string; created_at: string 
 export async function loadPartnerDashboardData(supabase: SupabaseServer): Promise<PartnerDashboardData> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: schoolRows }, { data: programRows }, { data: eventRows }, { data: docRows }] =
+  const [{ data: schoolRows }, { data: eventRows }, { data: docRows }] =
     await Promise.all([
       supabase
         .from("schools")
@@ -52,12 +43,6 @@ export async function loadPartnerDashboardData(supabase: SupabaseServer): Promis
         .eq("is_active", true)
         .order("name")
         .returns<SchoolRow[]>(),
-      supabase
-        .from("partner_programs")
-        .select("id, title, description, status")
-        .eq("published", true)
-        .order("position", { ascending: true })
-        .returns<ProgramRow[]>(),
       supabase
         .from("partner_events")
         .select("id, title, event_date, location")
@@ -77,12 +62,6 @@ export async function loadPartnerDashboardData(supabase: SupabaseServer): Promis
 
   return {
     schools: (schoolRows ?? []).map((s) => ({ id: s.id, name: s.name })),
-    programs: (programRows ?? []).map((p) => ({
-      id: p.id,
-      title: p.title,
-      description: p.description,
-      status: p.status as PartnerProgram["status"],
-    })),
     upcomingEvents: (eventRows ?? []).map((e) => ({
       id: e.id,
       title: e.title,

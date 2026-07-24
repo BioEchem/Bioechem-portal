@@ -29,6 +29,7 @@ export async function PATCH(
   if (typeof body.country === "string") updates.country = body.country.trim() || null;
   if (typeof body.website === "string") updates.website = body.website.trim() || null;
   if (typeof body.contactName === "string") updates.contact_name = body.contactName.trim() || null;
+  if (typeof body.contactTitle === "string") updates.contact_title = body.contactTitle.trim() || null;
   if (typeof body.contactEmail === "string") updates.contact_email = body.contactEmail.trim() || null;
   if (typeof body.contactPhone === "string") updates.contact_phone = body.contactPhone.trim() || null;
   if (typeof body.isPartner === "boolean") updates.is_partner = body.isPartner;

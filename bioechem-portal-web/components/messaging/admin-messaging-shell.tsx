@@ -73,14 +73,20 @@ export function AdminMessagingShell({ currentAdminId }: { currentAdminId: string
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
-  async function openPicker() {
-    setPickerOpen(true);
-    if (allUsers.length > 0) return;
+  const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     const res = await fetch("/api/messages/users");
     const json = await res.json() as { data: UserRow[] };
     setAllUsers(json.data ?? []);
     setUsersLoading(false);
+  }, []);
+
+  // Fetched on mount (not just when the picker opens) so the header can
+  // resolve a real name for a freshly-selected, not-yet-messaged user.
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  function openPicker() {
+    setPickerOpen(true);
   }
 
   function selectUser(userId: string) {
@@ -117,7 +123,15 @@ export function AdminMessagingShell({ currentAdminId }: { currentAdminId: string
   });
 
   const activeConv = conversations.find((c) => c.user_id === activeUserId);
-  const activeContactName = activeConv?.profiles?.full_name ?? activeConv?.profiles?.email ?? activeUserId ?? "";
+  const activeUser = allUsers.find((u) => u.id === activeUserId);
+  const activeContactName =
+    activeConv?.profiles?.full_name ??
+    activeConv?.profiles?.email ??
+    activeUser?.full_name ??
+    activeUser?.email ??
+    "";
+  const activeContactRole = activeConv?.profiles?.role ?? activeUser?.role ?? null;
+  const activeContactRoleLabel = activeContactRole ? getRoleLabel(activeContactRole) : undefined;
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden rounded-xl border border-card-border bg-card shadow-[var(--shadow-card)]">
@@ -310,6 +324,7 @@ export function AdminMessagingShell({ currentAdminId }: { currentAdminId: string
               userId={activeUserId}
               isAdminView
               contactName={activeContactName}
+              contactRoleLabel={activeContactRoleLabel}
             />
           </>
         ) : (

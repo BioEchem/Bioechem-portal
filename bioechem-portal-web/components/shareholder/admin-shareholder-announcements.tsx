@@ -13,11 +13,10 @@ type SentAnnouncement = {
   title: string;
   body: string;
   target: string;
-  target_shareholder_id: string | null;
+  target_shareholders: { id: string; full_name: string | null; email: string | null }[];
   file_name: string | null;
   size_bytes: number | null;
   created_at: string;
-  profiles: { full_name: string | null; email: string | null } | null;
 };
 
 export function AdminShareholderAnnouncements() {
@@ -45,7 +44,7 @@ export function AdminShareholderAnnouncements() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-bio-text-muted">
-          Send a message to all shareholders or one specific shareholder — with an optional file attached.
+          Send a message to all shareholders or a selected group — with an optional file attached.
         </p>
         {!composing && (
           <button
@@ -82,7 +81,9 @@ export function AdminShareholderAnnouncements() {
             <span className="font-medium text-bio-text">{a.title}</span>
             <span className="rounded-full border border-card-border px-2 py-0.5 text-xs text-bio-text-muted">
               {a.target === "specific"
-                ? `Sent to ${a.profiles?.full_name ?? a.profiles?.email ?? "one shareholder"}`
+                ? a.target_shareholders.length === 1
+                  ? `Sent to ${a.target_shareholders[0].full_name ?? a.target_shareholders[0].email ?? "one shareholder"}`
+                  : `Sent to ${a.target_shareholders.length} shareholders`
                 : "All shareholders"}
             </span>
           </div>
@@ -112,16 +113,20 @@ function ComposeForm({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [target, setTarget] = useState<"all" | "specific">("all");
-  const [targetShareholderId, setTargetShareholderId] = useState("");
+  const [targetShareholderIds, setTargetShareholderIds] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function toggleRecipient(id: string) {
+    setTargetShareholderIds((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !body.trim()) { setError("Title and message are required."); return; }
-    if (target === "specific" && !targetShareholderId) { setError("Pick a shareholder to send to."); return; }
+    if (target === "specific" && targetShareholderIds.length === 0) { setError("Pick at least one shareholder to send to."); return; }
     setError(null);
     setSending(true);
     try {
@@ -129,7 +134,7 @@ function ComposeForm({
       fd.append("title", title.trim());
       fd.append("body", body.trim());
       fd.append("target", target);
-      if (target === "specific") fd.append("targetShareholderId", targetShareholderId);
+      if (target === "specific") for (const id of targetShareholderIds) fd.append("targetShareholderIds", id);
       if (file) fd.append("file", file);
 
       const res = await fetch("/api/admin/shareholder-announcements", { method: "POST", body: fd });
@@ -172,20 +177,23 @@ function ComposeForm({
             </label>
             <label className="flex items-center gap-2">
               <input type="radio" checked={target === "specific"} onChange={() => setTarget("specific")} className="h-4 w-4 accent-bio-green" />
-              <span className="text-bio-text">Specific shareholder</span>
+              <span className="text-bio-text">Specific shareholders</span>
             </label>
           </div>
           {target === "specific" && (
-            <select
-              value={targetShareholderId}
-              onChange={(e) => setTargetShareholderId(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-card-border bg-white px-3 py-2 text-sm focus:border-bio-green focus:outline-none"
-            >
-              <option value="">— Select a shareholder —</option>
-              {shareholders.map((s) => (
-                <option key={s.id} value={s.id}>{s.full_name ?? s.email}</option>
-              ))}
-            </select>
+            <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-card-border p-2">
+              {shareholders.length === 0 ? (
+                <p className="px-1 py-1 text-xs text-bio-text-muted">No approved shareholders yet.</p>
+              ) : (
+                shareholders.map((s) => (
+                  <label key={s.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-bio-surface">
+                    <input type="checkbox" checked={targetShareholderIds.includes(s.id)} onChange={() => toggleRecipient(s.id)}
+                      className="h-4 w-4 rounded border-card-border accent-bio-green" />
+                    <span className="text-bio-text">{s.full_name ?? s.email}</span>
+                  </label>
+                ))
+              )}
+            </div>
           )}
         </div>
 

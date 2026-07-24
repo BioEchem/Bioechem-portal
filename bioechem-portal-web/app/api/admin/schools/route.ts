@@ -20,7 +20,7 @@ export async function GET() {
 
   let query = supabase
     .from("schools")
-    .select("id, name, slug, description, city, state, country, website, contact_name, contact_email, contact_phone, is_partner, is_active, created_at")
+    .select("id, name, slug, description, city, state, country, website, contact_name, contact_title, contact_email, contact_phone, is_partner, is_active, created_at")
     .order("name");
 
   if (isSchoolAdmin && !isBioAdmin) {
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       country: typeof body.country === "string" ? body.country.trim() || null : null,
       website: typeof body.website === "string" ? body.website.trim() || null : null,
       contact_name: typeof body.contactName === "string" ? body.contactName.trim() || null : null,
+      contact_title: typeof body.contactTitle === "string" ? body.contactTitle.trim() || null : null,
       contact_email: typeof body.contactEmail === "string" ? body.contactEmail.trim() || null : null,
       contact_phone: typeof body.contactPhone === "string" ? body.contactPhone.trim() || null : null,
       is_partner: body.isPartner !== false,

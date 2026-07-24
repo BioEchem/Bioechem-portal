@@ -17,11 +17,13 @@ export function ModuleList({
   modules: initial,
   canManage,
   backHref,
+  isBioAdminViewing,
 }: {
   cohortId: string;
   modules: Module[];
   canManage: boolean;
   backHref?: string;
+  isBioAdminViewing?: boolean;
 }) {
   const [modules, setModules] = useState(initial);
   const [title, setTitle] = useState("");
@@ -84,27 +86,48 @@ export function ModuleList({
             key={mod.id}
             className="flex items-center rounded-xl border border-card-border bg-card shadow-[var(--shadow-card)] hover:border-bio-green/40"
           >
-            <Link
-              href={`/cohorts/${cohortId}?tab=modules&moduleId=${mod.id}${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`}
-              className="flex flex-1 min-w-0 items-center gap-4 p-4"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bio-mint/40">
-                <BookOpen className="h-5 w-5 text-bio-green" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-bio-text truncate">{mod.title}</p>
-                  {!mod.published ? (
-                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      Draft
-                    </span>
+            {isBioAdminViewing ? (
+              <div className="flex flex-1 min-w-0 items-center gap-4 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bio-mint/40">
+                  <BookOpen className="h-5 w-5 text-bio-green" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-bio-text truncate">{mod.title}</p>
+                    {!mod.published ? (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Draft
+                      </span>
+                    ) : null}
+                  </div>
+                  {mod.description ? (
+                    <p className="mt-0.5 text-sm text-bio-text-muted truncate">{mod.description}</p>
                   ) : null}
                 </div>
-                {mod.description ? (
-                  <p className="mt-0.5 text-sm text-bio-text-muted truncate">{mod.description}</p>
-                ) : null}
               </div>
-            </Link>
+            ) : (
+              <Link
+                href={`/cohorts/${cohortId}?tab=modules&moduleId=${mod.id}${backHref ? `&back=${encodeURIComponent(backHref)}` : ""}`}
+                className="flex flex-1 min-w-0 items-center gap-4 p-4"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bio-mint/40">
+                  <BookOpen className="h-5 w-5 text-bio-green" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-bio-text truncate">{mod.title}</p>
+                    {!mod.published ? (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Draft
+                      </span>
+                    ) : null}
+                  </div>
+                  {mod.description ? (
+                    <p className="mt-0.5 text-sm text-bio-text-muted truncate">{mod.description}</p>
+                  ) : null}
+                </div>
+              </Link>
+            )}
 
             {canManage ? (
               <button

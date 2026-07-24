@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireBioechemAdmin } from "@/lib/admin/require-admin";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { PARTNER_FOLDER_CATEGORY_VALUES } from "@/lib/partner/folder-categories";
 
 type Params = { params: Promise<{ partnerId: string }> };
 
 const MAX_SIZE = 50 * 1024 * 1024;
+const CATEGORY = "other";
 
 export async function POST(req: Request, { params }: Params) {
   const auth = await requireBioechemAdmin();
@@ -18,15 +18,13 @@ export async function POST(req: Request, { params }: Params) {
   catch { return NextResponse.json({ error: "Invalid form data." }, { status: 400 }); }
 
   const file = formData.get("file");
-  const category = formData.get("category");
   const title = formData.get("title");
+  const folderId = formData.get("folder_id");
 
   if (!(file instanceof File) || file.size === 0)
     return NextResponse.json({ error: "No file provided." }, { status: 400 });
   if (file.size > MAX_SIZE)
     return NextResponse.json({ error: "File too large (max 50 MB)." }, { status: 413 });
-  if (typeof category !== "string" || !PARTNER_FOLDER_CATEGORY_VALUES.includes(category as never))
-    return NextResponse.json({ error: "Invalid category." }, { status: 400 });
 
   const { data: partner } = await auth.supabase
     .from("profiles")
@@ -36,11 +34,23 @@ export async function POST(req: Request, { params }: Params) {
     .maybeSingle();
   if (!partner) return NextResponse.json({ error: "Partner not found." }, { status: 404 });
 
+  let resolvedFolderId: string | null = null;
+  if (typeof folderId === "string" && folderId.length > 0) {
+    const { data: folder } = await auth.supabase
+      .from("partner_folders")
+      .select("id")
+      .eq("id", folderId)
+      .eq("partner_id", partnerId)
+      .maybeSingle();
+    if (!folder) return NextResponse.json({ error: "Folder not found." }, { status: 404 });
+    resolvedFolderId = folder.id;
+  }
+
   const admin = createServiceRoleClient();
   if (!admin) return NextResponse.json({ error: "Storage not configured." }, { status: 500 });
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `partners/${partnerId}/${category}/${Date.now()}_${safeName}`;
+  const storagePath = `partners/${partnerId}/${CATEGORY}/${Date.now()}_${safeName}`;
 
   const { error: uploadError } = await admin.storage
     .from("partner-docs")
@@ -55,7 +65,8 @@ export async function POST(req: Request, { params }: Params) {
     .insert({
       partner_id: partnerId,
       title: typeof title === "string" && title.trim() ? title.trim() : file.name,
-      category,
+      category: CATEGORY,
+      folder_id: resolvedFolderId,
       published: true,
       storage_path: storagePath,
       file_name: file.name,
@@ -63,7 +74,7 @@ export async function POST(req: Request, { params }: Params) {
       mime_type: file.type || null,
       created_by: auth.adminUserId,
     })
-    .select("id, title, description, category, file_name, size_bytes, mime_type, created_by, created_at")
+    .select("id, title, description, category, folder_id, file_name, size_bytes, mime_type, created_by, created_at")
     .single();
 
   if (dbError) {

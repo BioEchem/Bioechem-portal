@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ShareholderDocsList } from "@/components/shareholder/shareholder-docs-list";
 import { ShareholderAnnouncementsList } from "@/components/shareholder/shareholder-announcements-list";
+import { ShareholderOwnFolder } from "@/components/shareholder/shareholder-own-folder";
 
 type Doc = {
   id: string;
@@ -16,18 +17,21 @@ type Doc = {
   created_at: string;
 };
 
-type TabKey = "documents" | "announcements";
+type TabKey = "documents" | "folder" | "announcements";
 
 export function ShareholderDocsTabs({ docs }: { docs: Doc[] }) {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab");
-  const [tab, setTab] = useState<TabKey>(initialTab === "announcements" ? "announcements" : "documents");
+  const [tab, setTab] = useState<TabKey>(
+    initialTab === "announcements" ? "announcements" : initialTab === "folder" ? "folder" : "documents"
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex gap-1 border-b border-card-border">
         {[
           { key: "documents" as const, label: "Documents" },
+          { key: "folder" as const, label: "My folder" },
           { key: "announcements" as const, label: "Announcements" },
         ].map((t) => (
           <button
@@ -44,7 +48,13 @@ export function ShareholderDocsTabs({ docs }: { docs: Doc[] }) {
         ))}
       </div>
 
-      {tab === "documents" ? <ShareholderDocsList docs={docs} /> : <ShareholderAnnouncementsList />}
+      {tab === "documents" ? (
+        <ShareholderDocsList docs={docs} />
+      ) : tab === "folder" ? (
+        <ShareholderOwnFolder />
+      ) : (
+        <ShareholderAnnouncementsList />
+      )}
     </div>
   );
 }

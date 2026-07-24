@@ -16,6 +16,7 @@ type Props = {
   userId: string;
   isAdminView?: boolean;
   contactName?: string;
+  contactRoleLabel?: string;
 };
 
 function formatTime(iso: string) {
@@ -29,7 +30,7 @@ function formatTime(iso: string) {
     " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function MessageThread({ userId, isAdminView = false, contactName }: Props) {
+export function MessageThread({ userId, isAdminView = false, contactName, contactRoleLabel }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -135,7 +136,7 @@ export function MessageThread({ userId, isAdminView = false, contactName }: Prop
             {isAdminView ? (contactName ?? "User") : "BioEchem Admin"}
           </p>
           <p className="text-[11px] text-bio-text-muted">
-            {isAdminView ? "Portal user" : "Support & communication"}
+            {isAdminView ? (contactRoleLabel ?? "Portal user") : "Support & communication"}
           </p>
         </div>
       </div>

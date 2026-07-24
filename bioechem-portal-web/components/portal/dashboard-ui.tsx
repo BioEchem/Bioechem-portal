@@ -61,11 +61,14 @@ export function DashboardTable({
 type DashboardProfileCardProps = {
   title?: string;
   fields: DashboardProfileField[];
+  /** Hides the "Edit profile" link — it would edit the viewer's own account, not the previewed user's, so it's suppressed during admin "view as" preview. */
+  hideEditLink?: boolean;
 };
 
 export function DashboardProfileCard({
   title = "Your information",
   fields,
+  hideEditLink = false,
 }: DashboardProfileCardProps) {
   return (
     <PortalCard>
@@ -83,12 +86,14 @@ export function DashboardProfileCard({
             ))}
           </dl>
         </div>
-        <Link
-          href={PORTAL_ROUTES.account}
-          className="bio-btn-secondary inline-flex shrink-0"
-        >
-          Edit profile
-        </Link>
+        {hideEditLink ? null : (
+          <Link
+            href={PORTAL_ROUTES.account}
+            className="bio-btn-secondary inline-flex shrink-0"
+          >
+            Edit profile
+          </Link>
+        )}
       </div>
     </PortalCard>
   );
@@ -189,6 +194,8 @@ type DashboardShellProps = {
   subtitle: string;
   profileFields: DashboardProfileField[];
   children: ReactNode;
+  /** Set when a bioechem_admin is previewing this dashboard as another user — suppresses the "Edit profile" link. */
+  isBioAdminViewing?: boolean;
 };
 
 /** Shared welcome + profile header used by role dashboards. */
@@ -197,11 +204,12 @@ export function DashboardShell({
   subtitle,
   profileFields,
   children,
+  isBioAdminViewing = false,
 }: DashboardShellProps) {
   return (
     <div className="space-y-4">
       <DashboardWelcomeCard name={user.displayName} subtitle={subtitle} />
-      <DashboardProfileCard fields={profileFields} />
+      <DashboardProfileCard fields={profileFields} hideEditLink={isBioAdminViewing} />
       {children}
     </div>
   );

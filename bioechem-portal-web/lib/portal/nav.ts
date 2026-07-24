@@ -17,10 +17,10 @@ import {
   User,
   FileStack,
   Award,
+  Gift,
   Layers,
   FileEdit,
   CalendarDays,
-  Handshake,
 } from "lucide-react";
 
 import { AUTH_ROUTES } from "@/lib/auth/routes";
@@ -53,6 +53,8 @@ function buildAccountSection(role: string | null): PortalNavSection {
     items.push({ label: "Certificates", href: PORTAL_ROUTES.certificates, icon: Award });
   }
 
+  items.push({ label: "Credits", href: PORTAL_ROUTES.credits, icon: Gift });
+
   return { title: "Account", icon: User, items };
 }
 
@@ -79,7 +81,6 @@ const ADMIN_CONTENT_SECTION: PortalNavSection = {
     { label: "Shareholder Documents", href: AUTH_ROUTES.adminShareholderDocs, icon: FileStack },
     { label: "Partner Documents", href: AUTH_ROUTES.adminPartnerDocs, icon: FileStack },
     { label: "Partner Events", href: AUTH_ROUTES.adminPartnerEvents, icon: CalendarDays },
-    { label: "Partner Programs", href: AUTH_ROUTES.adminPartnerPrograms, icon: Handshake },
   ],
 };
 
@@ -131,6 +132,16 @@ function buildPortalItems(role: string | null): PortalNavItem[] {
       label: "Messaging",
       href: PORTAL_ROUTES.messaging,
       icon: MessageSquare,
+    });
+  }
+
+  // Participants, teachers, and school admins belong to a partner school
+  // and can see that school's info + contact details.
+  if (role === "participant" || role === "teacher" || role === "school_admin") {
+    items.push({
+      label: "My School",
+      href: PORTAL_ROUTES.school,
+      icon: Building2,
     });
   }
 

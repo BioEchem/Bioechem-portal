@@ -15,14 +15,18 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data: doc, error } = await supabase
     .from("shareholder_documents")
-    .select("storage_path, file_name, published, shared_with")
+    .select("storage_path, file_name, published, shared_with, shareholder_id")
     .eq("id", id)
     .single();
 
   if (error || !doc) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (!doc.storage_path) return NextResponse.json({ error: "No file attached." }, { status: 404 });
 
-  const isVisible = doc.published && (doc.shared_with === null || doc.shared_with.includes(user.id));
+  const isVisible =
+    doc.published &&
+    (doc.shareholder_id != null
+      ? doc.shareholder_id === user.id
+      : doc.shared_with === null || doc.shared_with.includes(user.id));
   if (profile.role !== "bioechem_admin" && !isVisible) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }

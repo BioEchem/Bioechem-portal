@@ -29,9 +29,10 @@ function categoryLabel(category: string): string {
 type ShareholderDashboardProps = {
   user: DashboardUserContext;
   data: ShareholderDashboardData;
+  asUserId?: string;
 };
 
-export function ShareholderDashboard({ user, data }: ShareholderDashboardProps) {
+export function ShareholderDashboard({ user, data, asUserId }: ShareholderDashboardProps) {
   const { welcomeSubtitle } = getRoleConfig(user.role);
   const { updates, recentDocuments, governanceDocuments, documentCountsByCategory, impact } = data;
 
@@ -40,6 +41,7 @@ export function ShareholderDashboard({ user, data }: ShareholderDashboardProps) 
       user={user}
       subtitle={welcomeSubtitle}
       profileFields={buildDashboardProfileFields(user)}
+      isBioAdminViewing={!!asUserId}
     >
       {/* ── Program impact ── */}
       <PortalCard>

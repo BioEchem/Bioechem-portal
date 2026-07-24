@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, Eye } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
+import { AdminPreviewBanner } from "@/components/portal/admin-preview-banner";
 import { CohortTabs } from "@/components/cohorts/cohort-tabs";
 import { AnnouncementsSection } from "@/components/cohorts/announcements-section";
 import { ModuleList } from "@/components/cohorts/module-list";
@@ -102,12 +103,14 @@ function AssignmentsTabContent({
   cohortId,
   backHref,
   canManage,
+  isBioAdminViewing,
 }: {
   assignments: AssignmentRow[];
   cohortId: string;
   userId: string;
   backHref?: string;
   canManage: boolean;
+  isBioAdminViewing?: boolean;
 }) {
   const now = new Date();
   const hasSubmission = (a: AssignmentRow) => Array.isArray(a.submissions) ? a.submissions.length > 0 : !!a.submissions;
@@ -132,9 +135,13 @@ function AssignmentsTabContent({
           return (
             <div key={a.id} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
-                <Link href={href} className="text-sm font-medium text-bio-text hover:text-bio-green">
-                  {item?.title ?? "Untitled"}
-                </Link>
+                {isBioAdminViewing ? (
+                  <p className="text-sm font-medium text-bio-text">{item?.title ?? "Untitled"}</p>
+                ) : (
+                  <Link href={href} className="text-sm font-medium text-bio-text hover:text-bio-green">
+                    {item?.title ?? "Untitled"}
+                  </Link>
+                )}
                 {a.due_at ? (
                   <p className={`text-xs mt-0.5 ${overdue ? "text-red-500" : "text-bio-text-muted"}`}>
                     Due {fmt(a.due_at)}
@@ -152,6 +159,10 @@ function AssignmentsTabContent({
                   ) : overdue ? (
                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
                       Overdue
+                    </span>
+                  ) : isBioAdminViewing ? (
+                    <span className="rounded-full bg-bio-green/10 px-2 py-0.5 text-xs font-medium text-bio-green">
+                      Not submitted
                     </span>
                   ) : (
                     <Link
@@ -246,7 +257,7 @@ function CertificatesTabContent({ certificates }: { certificates: CertificateRow
   );
 }
 
-function SurveysTabContent({ surveys }: { surveys: SurveyRow[] }) {
+function SurveysTabContent({ surveys, isBioAdminViewing }: { surveys: SurveyRow[]; isBioAdminViewing?: boolean }) {
   const available = surveys.filter((s) => !s.already_responded);
   const completed = surveys.filter((s) => s.already_responded);
 
@@ -270,12 +281,18 @@ function SurveysTabContent({ surveys }: { surveys: SurveyRow[] }) {
                     <p className="text-xs text-bio-text-muted mt-0.5">{TYPE_LABEL[s.type] ?? s.type}</p>
                   )}
                 </div>
-                <Link
-                  href={`/surveys/${s.id}`}
-                  className="shrink-0 rounded-full bg-bio-green/10 px-3 py-1 text-xs font-medium text-bio-green hover:bg-bio-green/20"
-                >
-                  Take survey
-                </Link>
+                {isBioAdminViewing ? (
+                  <span className="shrink-0 rounded-full bg-bio-green/10 px-3 py-1 text-xs font-medium text-bio-green">
+                    Not taken
+                  </span>
+                ) : (
+                  <Link
+                    href={`/surveys/${s.id}`}
+                    className="shrink-0 rounded-full bg-bio-green/10 px-3 py-1 text-xs font-medium text-bio-green hover:bg-bio-green/20"
+                  >
+                    Take survey
+                  </Link>
+                )}
               </div>
             ))}
           </div>
@@ -293,12 +310,16 @@ function SurveysTabContent({ surveys }: { surveys: SurveyRow[] }) {
                   <p className="text-sm font-medium text-bio-text">{s.title}</p>
                   <p className="text-xs text-bio-text-muted mt-0.5">{TYPE_LABEL[s.type] ?? s.type}</p>
                 </div>
-                <Link
-                  href={`/surveys/${s.id}`}
-                  className="shrink-0 text-xs text-bio-text-muted hover:text-bio-green"
-                >
-                  View response →
-                </Link>
+                {isBioAdminViewing ? (
+                  <span className="shrink-0 text-xs text-bio-text-muted">Responded</span>
+                ) : (
+                  <Link
+                    href={`/surveys/${s.id}`}
+                    className="shrink-0 text-xs text-bio-text-muted hover:text-bio-green"
+                  >
+                    View response →
+                  </Link>
+                )}
               </div>
             ))}
           </div>
@@ -374,7 +395,10 @@ export default async function CohortHomePage({
   const isSchoolAdmin = profile.role === "school_admin";
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
   const isAdmin = isBioAdmin || isSchoolAdmin;
-  const canManage = isAdmin || isTeacher;
+  // While previewing another user's view ("View as user"), never expose management
+  // actions — the preview must stay strictly read-only regardless of the real
+  // admin's own role or the viewed user's role.
+  const canManage = !isBioAdminViewing && (isAdmin || isTeacher);
   const isApprovedEnrolled = enrollment?.status === "approved";
   const canViewContent = canManage || isApprovedEnrolled;
 
@@ -683,12 +707,8 @@ export default async function CohortHomePage({
         </Link>
       ) : null}
       {isBioAdminViewing && viewingUserName ? (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          <Eye className="h-4 w-4 shrink-0" />
-          <span>Viewing as <strong>{viewingUserName}</strong> — read-only admin preview</span>
-          {backHref ? (
-            <Link href={backHref} className="ml-auto text-amber-700 underline hover:text-amber-900">Exit preview</Link>
-          ) : null}
+        <div className="mb-3">
+          <AdminPreviewBanner targetName={viewingUserName} targetUserId={viewingUserId} action="this cohort" />
         </div>
       ) : null}
       {cohortData.status === "archived" && !isAdmin ? (
@@ -792,13 +812,13 @@ export default async function CohortHomePage({
               </p>
             </PortalCard>
           )
-        ) : tab === "modules" && canViewContent && moduleId ? (
+        ) : tab === "modules" && canViewContent && moduleId && !isBioAdminViewing ? (
           <ModuleDetailBody cohortId={cohortId} moduleId={moduleId} />
 
         ) : tab === "modules" && canViewContent ? (
-          <ModuleList cohortId={cohortId} modules={modules} canManage={canManage} backHref={backHref ?? undefined} />
+          <ModuleList cohortId={cohortId} modules={modules} canManage={canManage} backHref={backHref ?? undefined} isBioAdminViewing={isBioAdminViewing} />
 
-        ) : tab === "assignments" && canViewContent && assignmentId ? (
+        ) : tab === "assignments" && canViewContent && assignmentId && !isBioAdminViewing ? (
           <AssignmentDetailBody cohortId={cohortId} assignmentId={assignmentId} />
 
         ) : tab === "assignments" && canViewContent ? (
@@ -808,10 +828,11 @@ export default async function CohortHomePage({
             userId={user.id}
             backHref={backHref ?? undefined}
             canManage={canManage}
+            isBioAdminViewing={isBioAdminViewing}
           />
 
         ) : tab === "surveys" && canViewContent ? (
-          <SurveysTabContent surveys={cohortSurveys} />
+          <SurveysTabContent surveys={cohortSurveys} isBioAdminViewing={isBioAdminViewing} />
 
         ) : tab === "classroom" && canViewContent ? (
           <ClassroomView
@@ -992,6 +1013,12 @@ export default async function CohortHomePage({
         ) : tab === "career_path" && canViewContent ? (
           canManage ? (
             <CareerPathManagerSection cohortId={cohortId} />
+          ) : isBioAdminViewing ? (
+            <PortalCard>
+              <p className="text-sm text-bio-text-muted">
+                Career path editing is disabled while previewing as another user.
+              </p>
+            </PortalCard>
           ) : (
             <CareerPathSelfSection cohortId={cohortId} />
           )

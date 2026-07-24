@@ -22,6 +22,8 @@ type ParticipantDashboardProps = {
   profileCompletion: ProfileCompletionStatus;
   pendingCohortNames?: string[];
   data: ParticipantDashboardData;
+  /** Set when a bioechem_admin is previewing this dashboard as another user — appended to nested links so they stay in preview context instead of falling back to the admin's own data. */
+  asUserId?: string;
 };
 
 export function ParticipantDashboard({
@@ -29,15 +31,18 @@ export function ParticipantDashboard({
   profileCompletion,
   pendingCohortNames = [],
   data,
+  asUserId,
 }: ParticipantDashboardProps) {
   const { welcomeSubtitle } = getRoleConfig(user.role);
   const { courses, grades } = data;
+  const asQuery = asUserId ? `?as=${asUserId}` : "";
 
   return (
     <DashboardShell
       user={user}
       subtitle={welcomeSubtitle}
       profileFields={buildDashboardProfileFields(user, { includeSchoolCohort: true })}
+      isBioAdminViewing={!!asUserId}
     >
       <ProfileCompletionPrompt variant="dashboard" status={profileCompletion} />
       {pendingCohortNames.length > 0 ? (
@@ -65,12 +70,12 @@ export function ParticipantDashboard({
         links={[
           {
             label: "My courses",
-            href: PORTAL_ROUTES.cohorts,
+            href: `${PORTAL_ROUTES.cohorts}${asQuery}`,
             description: "View enrolled BioEchem courses and lesson materials.",
           },
           {
             label: "Assignments",
-            href: PORTAL_ROUTES.assignments,
+            href: `${PORTAL_ROUTES.assignments}${asQuery}`,
             description: "See upcoming tasks and submit your work.",
           },
           {
@@ -93,7 +98,7 @@ export function ParticipantDashboard({
               {courses.map((c) => (
                 <li key={c.cohortId}>
                   <Link
-                    href={`/cohorts/${c.cohortId}`}
+                    href={`/cohorts/${c.cohortId}${asQuery}`}
                     className="flex items-center justify-between gap-3 rounded-lg border border-card-border px-3 py-2.5 transition-colors hover:border-bio-green/40"
                   >
                     <div className="min-w-0">

@@ -11,7 +11,8 @@ export async function GET() {
   let query = supabase
     .from("shareholder_documents")
     .select("id, title, description, category, file_name, size_bytes, mime_type, created_at")
-    .eq("published", true);
+    .eq("published", true)
+    .is("shareholder_id", null);
 
   // Shareholders only see broadcast docs (shared_with null) or docs shared
   // with them specifically; admins see everything.

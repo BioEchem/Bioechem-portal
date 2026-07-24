@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Eye } from "lucide-react";
 
 import { AdminPortalDashboard } from "@/components/portal/admin-portal-dashboard";
+import { AdminPreviewBanner } from "@/components/portal/admin-preview-banner";
 import { ParticipantDashboard } from "@/components/portal/participant-dashboard";
 import { PartnerDashboard } from "@/components/portal/partner-dashboard";
 import { PortalPage } from "@/components/portal/portal-page";
@@ -81,18 +80,7 @@ export default async function DashboardPage({
 
   // Admin-view banner shown at the top of every dashboard view-as render
   const adminBanner = isBioAdminViewing && targetName ? (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-      <div className="flex items-center gap-2 text-sm text-amber-800">
-        <Eye className="h-4 w-4 shrink-0" />
-        <span>Viewing dashboard as <strong>{targetName}</strong> — read-only admin preview</span>
-      </div>
-      <Link
-        href={`/admin/users/${asUserId}`}
-        className="shrink-0 text-xs font-medium text-amber-700 hover:underline"
-      >
-        ← Back to profile
-      </Link>
-    </div>
+    <AdminPreviewBanner targetName={targetName} targetUserId={asUserId!} action="dashboard" />
   ) : null;
 
   // Use service role client for target-user data fetches when in view-as mode
@@ -145,7 +133,7 @@ export default async function DashboardPage({
         description={`Overview for ${schoolData.schoolName}.`}
       >
         {adminBanner}
-        <SchoolAdminDashboard data={schoolData} />
+        <SchoolAdminDashboard data={schoolData} asUserId={isBioAdminViewing ? asUserId : undefined} />
       </PortalPage>
     );
   }
@@ -215,6 +203,7 @@ export default async function DashboardPage({
         <TeacherDashboard
           user={userContext}
           stats={{ classCount: cohortIds.length, studentCount, assignmentCount, pendingGradingCount }}
+          asUserId={isBioAdminViewing ? asUserId : undefined}
         />
       </PortalPage>
     );
@@ -225,7 +214,7 @@ export default async function DashboardPage({
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
         {adminBanner}
-        <PartnerDashboard user={userContext} data={partnerData} />
+        <PartnerDashboard user={userContext} data={partnerData} asUserId={isBioAdminViewing ? asUserId : undefined} />
       </PortalPage>
     );
   }
@@ -238,7 +227,7 @@ export default async function DashboardPage({
     return (
       <PortalPage title="Dashboard" description={dashboardDescription}>
         {adminBanner}
-        <ShareholderDashboard user={userContext} data={shareholderData} />
+        <ShareholderDashboard user={userContext} data={shareholderData} asUserId={isBioAdminViewing ? asUserId : undefined} />
       </PortalPage>
     );
   }
@@ -265,6 +254,7 @@ export default async function DashboardPage({
         profileCompletion={profileCompletion}
         pendingCohortNames={pendingCohortNames}
         data={participantData}
+        asUserId={isBioAdminViewing ? asUserId : undefined}
       />
     </PortalPage>
   );

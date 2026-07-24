@@ -14,32 +14,22 @@ import {
 import { PORTAL_ROUTES } from "@/lib/portal/routes";
 import { getRoleConfig } from "@/lib/portal/role-config";
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Active",
-  upcoming: "Upcoming",
-  completed: "Completed",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-bio-green/10 text-bio-green",
-  upcoming: "bg-blue-50 text-blue-700",
-  completed: "bg-gray-100 text-gray-600",
-};
-
 type PartnerDashboardProps = {
   user: DashboardUserContext;
   data: PartnerDashboardData;
+  asUserId?: string;
 };
 
-export function PartnerDashboard({ user, data }: PartnerDashboardProps) {
+export function PartnerDashboard({ user, data, asUserId }: PartnerDashboardProps) {
   const { welcomeSubtitle } = getRoleConfig(user.role);
-  const { schools, programs, upcomingEvents, recentDocuments } = data;
+  const { schools, upcomingEvents, recentDocuments } = data;
 
   return (
     <DashboardShell
       user={user}
       subtitle={welcomeSubtitle}
       profileFields={buildDashboardProfileFields(user)}
+      isBioAdminViewing={!!asUserId}
     >
       <DashboardQuickLinks
         links={[
@@ -52,34 +42,6 @@ export function PartnerDashboard({ user, data }: PartnerDashboardProps) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* ── Partnership programs ── */}
-        <PortalCard>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">
-            Partnership programs
-          </h2>
-          {programs.length === 0 ? (
-            <p className="mt-3 text-sm text-bio-text-muted">
-              Active BioEchem partnership opportunities and your involvement will be listed here.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {programs.map((program) => (
-                <li key={program.id} className="border-b border-card-border/70 pb-3 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-bio-text">{program.title}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[program.status] ?? STATUS_COLORS.active}`}>
-                      {STATUS_LABELS[program.status] ?? program.status}
-                    </span>
-                  </div>
-                  {program.description ? (
-                    <p className="mt-1 text-sm text-bio-text-muted">{program.description}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </PortalCard>
-
         {/* ── Collaborating schools ── */}
         <PortalCard>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">

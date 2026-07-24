@@ -3,6 +3,8 @@ import { requireBioechemAdmin } from "@/lib/admin/require-admin";
 
 type Params = { params: Promise<{ id: string }> };
 
+const VALID_TARGETS = ["all", "industry", "government", "specific"];
+
 export async function PATCH(req: Request, { params }: Params) {
   const auth = await requireBioechemAdmin();
   if (!auth.ok) return auth.response;
@@ -18,6 +20,14 @@ export async function PATCH(req: Request, { params }: Params) {
   if (typeof body.location    === "string") updates.location    = body.location.trim() || null;
   if (typeof body.link        === "string") updates.link        = body.link.trim() || null;
   if (typeof body.published   === "boolean") updates.published  = body.published;
+  if (typeof body.target      === "string") {
+    if (!VALID_TARGETS.includes(body.target)) return NextResponse.json({ error: "Invalid target." }, { status: 400 });
+    const targetPartnerId = typeof body.target_partner_id === "string" ? body.target_partner_id : null;
+    if (body.target === "specific" && !targetPartnerId)
+      return NextResponse.json({ error: "A specific partner is required for that target." }, { status: 400 });
+    updates.target = body.target;
+    updates.target_partner_id = body.target === "specific" ? targetPartnerId : null;
+  }
 
   const { data, error } = await auth.supabase
     .from("partner_events")

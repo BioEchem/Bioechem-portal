@@ -11,6 +11,7 @@ import {
   FolderPlus,
   Home,
   Loader2,
+  Mail,
   MoreVertical,
   Pencil,
   Trash2,
@@ -19,6 +20,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatBytes } from "@/lib/format/bytes";
 import { formatShortDate as formatDate } from "@/lib/format/date";
+import { DriveEmailModal } from "@/components/drive/drive-email-modal";
 
 type DriveItem = {
   id: string;
@@ -33,6 +35,10 @@ type DriveItem = {
 };
 
 type BreadcrumbEntry = { id: string | null; name: string };
+
+function isSpreadsheet(name: string) {
+  return /\.xlsx?$/i.test(name);
+}
 
 // Position of the active dropdown menu (screen coords)
 type MenuPosition = { top: number; right: number };
@@ -67,6 +73,7 @@ export function DriveBrowser() {
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [emailModalItem, setEmailModalItem] = useState<DriveItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -428,6 +435,14 @@ export function DriveBrowser() {
               <Download className="h-3.5 w-3.5 text-bio-text-muted" /> Download
             </button>
           )}
+          {activeItem.type === "file" && isSpreadsheet(activeItem.name) && (
+            <button
+              onClick={() => { setEmailModalItem(activeItem); setActiveMenu(null); }}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-bio-text hover:bg-bio-bg border-t border-card-border transition-colors"
+            >
+              <Mail className="h-3.5 w-3.5 text-bio-text-muted" /> Send email to list
+            </button>
+          )}
           <button
             onClick={() => void deleteItem(activeItem)}
             className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 border-t border-card-border rounded-b-lg transition-colors"
@@ -435,6 +450,14 @@ export function DriveBrowser() {
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
         </div>
+      )}
+
+      {emailModalItem && (
+        <DriveEmailModal
+          fileId={emailModalItem.id}
+          fileName={emailModalItem.name}
+          onClose={() => setEmailModalItem(null)}
+        />
       )}
     </div>
   );

@@ -23,16 +23,20 @@ type TeacherStats = {
 type TeacherDashboardProps = {
   user: DashboardUserContext;
   stats: TeacherStats;
+  /** Set when a bioechem_admin is previewing this dashboard as another user. */
+  asUserId?: string;
 };
 
-export function TeacherDashboard({ user, stats }: TeacherDashboardProps) {
+export function TeacherDashboard({ user, stats, asUserId }: TeacherDashboardProps) {
   const hasClasses = stats.classCount > 0;
+  const asQuery = asUserId ? `?as=${asUserId}` : "";
 
   return (
     <DashboardShell
       user={user}
       subtitle="Your teaching dashboard — manage classes, assignments, and student progress."
       profileFields={buildDashboardProfileFields(user, { includeSchoolCohort: true })}
+      isBioAdminViewing={!!asUserId}
     >
       {/* Compact stat pills */}
       <div className="flex flex-wrap gap-3">
@@ -59,12 +63,12 @@ export function TeacherDashboard({ user, stats }: TeacherDashboardProps) {
           links={[
             {
               label: "My courses",
-              href: PORTAL_ROUTES.cohorts,
+              href: `${PORTAL_ROUTES.cohorts}${asQuery}`,
               description: "View your enrolled classes and course content.",
             },
             {
               label: "Assignments",
-              href: PORTAL_ROUTES.assignments,
+              href: `${PORTAL_ROUTES.assignments}${asQuery}`,
               description: "Create tasks and review student submissions.",
             },
             {
@@ -81,7 +85,7 @@ export function TeacherDashboard({ user, stats }: TeacherDashboardProps) {
             Browse available courses and enroll to start teaching.
           </p>
           <Link
-            href={PORTAL_ROUTES.cohorts}
+            href={`${PORTAL_ROUTES.cohorts}${asQuery}`}
             className="mt-4 inline-flex rounded-lg bg-bio-green px-4 py-2 text-sm font-medium text-white hover:bg-bio-green/90"
           >
             Browse courses

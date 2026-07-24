@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronUp, Loader2, Trash2 } from "lucide-react";
 import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 
+type PartnerOption = { id: string; full_name: string | null; email: string | null };
+
 type EventRow = {
   id: string;
   title: string;
@@ -12,6 +14,16 @@ type EventRow = {
   location: string | null;
   link: string | null;
   published: boolean;
+  target: string;
+  target_partner_id: string | null;
+  profiles?: { full_name: string | null; email: string | null } | null;
+};
+
+const TARGET_LABELS: Record<string, string> = {
+  all: "Everyone",
+  industry: "Industry partners",
+  government: "Government partners",
+  specific: "Specific partner",
 };
 
 function fmt(d: string | null) {
@@ -21,12 +33,14 @@ function fmt(d: string | null) {
 
 function EventForm({
   initial,
+  partners,
   onSave,
   onCancel,
   onDelete,
   mode,
 }: {
   initial?: Partial<EventRow>;
+  partners: PartnerOption[];
   onSave: (data: Partial<EventRow>) => Promise<EventRow>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
@@ -38,12 +52,15 @@ function EventForm({
   const [location,    setLocation]    = useState(initial?.location    ?? "");
   const [link,        setLink]        = useState(initial?.link        ?? "");
   const [published,   setPublished]   = useState(initial?.published   ?? true);
+  const [target,       setTarget]       = useState(initial?.target ?? "all");
+  const [targetPartnerId, setTargetPartnerId] = useState(initial?.target_partner_id ?? "");
   const [status,      setStatus]      = useState<string | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [confirming,  setConfirming]  = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (target === "specific" && !targetPartnerId) { setError("Pick a partner to publish to."); return; }
     setError(null);
     setStatus(mode === "create" ? "Creating…" : "Saving…");
     try {
@@ -54,6 +71,8 @@ function EventForm({
         location: location || null,
         link: link || null,
         published,
+        target,
+        target_partner_id: target === "specific" ? targetPartnerId : null,
       });
       setStatus(null);
     } catch (err) {
@@ -105,10 +124,34 @@ function EventForm({
         </div>
       </div>
 
+      <div>
+        <label className="mb-2 block text-xs font-medium text-bio-text-muted">Publish to</label>
+        <div className="flex flex-wrap gap-4 text-sm">
+          {(["all", "industry", "government", "specific"] as const).map((t) => (
+            <label key={t} className="flex items-center gap-2">
+              <input type="radio" checked={target === t} onChange={() => setTarget(t)} className="h-4 w-4 accent-bio-green" />
+              <span className="text-bio-text">{TARGET_LABELS[t]}</span>
+            </label>
+          ))}
+        </div>
+        {target === "specific" && (
+          <select
+            value={targetPartnerId}
+            onChange={(e) => setTargetPartnerId(e.target.value)}
+            className="mt-2 w-full rounded-lg border border-card-border bg-white px-3 py-2 text-sm focus:border-bio-green focus:outline-none"
+          >
+            <option value="">— Select a partner —</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)}
           className="h-4 w-4 rounded border-card-border accent-bio-green" />
-        <span className="text-bio-text">Published (visible to industry partners)</span>
+        <span className="text-bio-text">Published (visible to targeted partners)</span>
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -147,15 +190,21 @@ function EventForm({
 
 export default function AdminPartnerEventsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [partners, setPartners] = useState<PartnerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/partner-events");
-    const json = await res.json() as { data?: EventRow[] };
+    const [eventsRes, partnersRes] = await Promise.all([
+      fetch("/api/admin/partner-events"),
+      fetch("/api/admin/partner-docs/folders"),
+    ]);
+    const json = await eventsRes.json() as { data?: EventRow[] };
+    const partnersJson = await partnersRes.json() as { data?: PartnerOption[] };
     setEvents(json.data ?? []);
+    setPartners(partnersJson.data ?? []);
     setLoading(false);
   }, []);
 
@@ -213,7 +262,7 @@ export default function AdminPartnerEventsPage() {
         {creating && (
           <PortalCard>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-bio-green">New event</h2>
-            <EventForm mode="create" onSave={handleCreate} onCancel={() => setCreating(false)} />
+            <EventForm mode="create" partners={partners} onSave={handleCreate} onCancel={() => setCreating(false)} />
           </PortalCard>
         )}
 
@@ -237,6 +286,11 @@ export default function AdminPartnerEventsPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${event.published ? "bg-bio-green/10 text-bio-green" : "bg-amber-100 text-amber-700"}`}>
                     {event.published ? "Published" : "Draft"}
                   </span>
+                  <span className="rounded-full border border-card-border px-2 py-0.5 text-xs text-bio-text-muted">
+                    {event.target === "specific"
+                      ? `To ${event.profiles?.full_name ?? event.profiles?.email ?? "one partner"}`
+                      : TARGET_LABELS[event.target] ?? event.target}
+                  </span>
                 </div>
                 <p className="mt-0.5 text-xs text-bio-text-muted">
                   {fmt(event.event_date)}{event.location ? ` · ${event.location}` : ""}
@@ -258,6 +312,7 @@ export default function AdminPartnerEventsPage() {
               <div className="mt-4 border-t border-card-border pt-4">
                 <EventForm
                   mode="edit"
+                  partners={partners}
                   initial={event}
                   onSave={(data) => handleUpdate(event.id, data)}
                   onCancel={() => setExpandedId(null)}

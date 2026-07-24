@@ -10,9 +10,10 @@ import type { SchoolAdminDashboardData } from "@/lib/dashboard/school-admin-data
 
 type SchoolAdminDashboardProps = {
   data: SchoolAdminDashboardData;
+  asUserId?: string;
 };
 
-export function SchoolAdminDashboard({ data }: SchoolAdminDashboardProps) {
+export function SchoolAdminDashboard({ data, asUserId }: SchoolAdminDashboardProps) {
   return (
     <div className="space-y-4">
       <DashboardWelcomeCard
@@ -27,6 +28,7 @@ export function SchoolAdminDashboard({ data }: SchoolAdminDashboardProps) {
           { label: "Role", value: "School admin" },
           { label: "School", value: data.schoolName },
         ]}
+        hideEditLink={!!asUserId}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

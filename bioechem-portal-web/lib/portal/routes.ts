@@ -16,4 +16,6 @@ export const PORTAL_ROUTES = {
   partnerEvents: "/partner-events",
   rewards: "/rewards",
   certificates: "/certificates",
+  credits: "/credits",
+  school: "/school",
 } as const;

@@ -13,11 +13,29 @@ export async function GET() {
 
   const { data, error } = await auth.supabase
     .from("shareholder_announcements")
-    .select("id, title, body, target, target_shareholder_id, storage_path, file_name, size_bytes, created_at, profiles!target_shareholder_id(full_name, email)")
+    .select("id, title, body, target, target_shareholder_ids, storage_path, file_name, size_bytes, created_at")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+
+  const allIds = Array.from(
+    new Set((data ?? []).flatMap((a) => a.target_shareholder_ids ?? []))
+  );
+  const namesById = new Map<string, { full_name: string | null; email: string | null }>();
+  if (allIds.length > 0) {
+    const { data: profiles } = await auth.supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", allIds);
+    for (const p of profiles ?? []) namesById.set(p.id, { full_name: p.full_name, email: p.email });
+  }
+
+  const withNames = (data ?? []).map((a) => ({
+    ...a,
+    target_shareholders: (a.target_shareholder_ids ?? []).map((id: string) => ({ id, ...namesById.get(id) })),
+  }));
+
+  return NextResponse.json({ data: withNames });
 }
 
 export async function POST(req: Request) {
@@ -31,14 +49,16 @@ export async function POST(req: Request) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const target = String(formData.get("target") ?? "");
-  const targetShareholderId = formData.get("targetShareholderId");
+  const targetShareholderIds = formData.getAll("targetShareholderIds").filter(
+    (v): v is string => typeof v === "string" && v.length > 0
+  );
   const file = formData.get("file");
 
   if (!title) return NextResponse.json({ error: "Title is required." }, { status: 400 });
   if (!body) return NextResponse.json({ error: "Message body is required." }, { status: 400 });
   if (!VALID_TARGETS.includes(target)) return NextResponse.json({ error: "Invalid target." }, { status: 400 });
-  if (target === "specific" && typeof targetShareholderId !== "string")
-    return NextResponse.json({ error: "A specific shareholder is required for that target." }, { status: 400 });
+  if (target === "specific" && targetShareholderIds.length === 0)
+    return NextResponse.json({ error: "Pick at least one shareholder for that target." }, { status: 400 });
 
   const admin = createServiceRoleClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 500 });
@@ -50,7 +70,7 @@ export async function POST(req: Request) {
     .eq("approval_status", "approved");
 
   if (target === "specific") {
-    recipientsQuery = recipientsQuery.eq("id", targetShareholderId as string);
+    recipientsQuery = recipientsQuery.in("id", targetShareholderIds);
   }
 
   const { data: recipients, error: recipientsError } = await recipientsQuery;
@@ -85,7 +105,7 @@ export async function POST(req: Request) {
       title,
       body,
       target,
-      target_shareholder_id: target === "specific" ? targetShareholderId : null,
+      target_shareholder_ids: target === "specific" ? targetShareholderIds : null,
       storage_path: storagePath,
       file_name: fileName,
       size_bytes: sizeBytes,
