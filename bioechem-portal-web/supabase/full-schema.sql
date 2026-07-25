@@ -5,7 +5,9 @@
 -- Safe to re-run on a fresh project: drops and recreates all portal tables,
 -- functions, policies, and storage buckets.
 --
--- Last updated: includes all features through notifications (migration 010).
+-- Last updated: includes all features through shareholder/partner nested
+-- folders, career updates, credits page content, and partner/shareholder
+-- announcements.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -18,12 +20,18 @@ drop trigger  if exists profiles_validate_cohort_school on public.profiles;
 -- New feature tables
 drop table if exists public.notifications          cascade;
 drop table if exists public.point_transactions     cascade;
+drop table if exists public.credits_page_content   cascade;
+drop table if exists public.shareholder_announcements cascade;
+drop table if exists public.partner_announcements  cascade;
 drop table if exists public.shareholder_documents  cascade;
+drop table if exists public.shareholder_folders    cascade;
 drop table if exists public.partner_documents      cascade;
+drop table if exists public.partner_folders        cascade;
 drop table if exists public.partner_events         cascade;
 drop table if exists public.partner_programs       cascade;
 drop table if exists public.job_applications       cascade;
 drop table if exists public.job_postings           cascade;
+drop table if exists public.career_updates         cascade;
 
 -- LMS tables
 drop table if exists public.cohort_contacts        cascade;
@@ -152,8 +160,10 @@ create table public.schools (
   state         text,
   country       text,
   website       text,
+  contact_name  text,
   contact_email text,
   contact_phone text,
+  contact_title text,
   is_partner    boolean not null default true,
   is_active     boolean not null default true,
   created_at    timestamptz not null default now(),
@@ -219,6 +229,7 @@ create table public.profiles (
   age                       smallint,
   interested_in_internship  boolean not null default false,
   role                      public.user_role    not null default 'participant',
+  partner_type              text check (partner_type in ('industry', 'government')),
   school_id                 uuid references public.schools(id),
   other_school_name         text,
   cohort_id                 uuid references public.cohorts(id),
@@ -459,6 +470,31 @@ create table public.cohort_enrollments (
 create index enrollments_cohort_id_idx on public.cohort_enrollments(cohort_id);
 create index enrollments_user_id_idx   on public.cohort_enrollments(user_id);
 create index enrollments_status_idx    on public.cohort_enrollments(status);
+
+-- ---------------------------------------------------------------------------
+-- CAREER UPDATES (participant career path/interests per cohort)
+-- ---------------------------------------------------------------------------
+
+create table public.career_updates (
+  id           uuid        primary key default gen_random_uuid(),
+  cohort_id    uuid        not null references public.cohorts(id) on delete cascade,
+  user_id      uuid        not null references public.profiles(id) on delete cascade,
+  content      text,
+  file_url     text,
+  storage_path text,
+  file_name    text,
+  size_bytes   bigint,
+  mime_type    text,
+  admin_comment text,
+  commented_by  uuid references public.profiles(id) on delete set null,
+  commented_at  timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (cohort_id, user_id)
+);
+
+create index career_updates_cohort_id_idx on public.career_updates(cohort_id);
+create index career_updates_user_id_idx   on public.career_updates(user_id);
 
 -- ---------------------------------------------------------------------------
 -- LMS: MODULES
@@ -842,66 +878,146 @@ create table public.job_applications (
 );
 
 -- ---------------------------------------------------------------------------
--- SHAREHOLDER DOCUMENTS
+-- SHAREHOLDER FOLDERS + DOCUMENTS
 -- ---------------------------------------------------------------------------
 
-create table public.shareholder_documents (
-  id           uuid primary key default gen_random_uuid(),
-  title        text    not null,
-  description  text,
-  category     text    not null default 'general',
-  file_url     text,
-  storage_path text,
-  file_name    text,
-  size_bytes   bigint,
-  mime_type    text,
-  published    boolean not null default true,
-  created_by   uuid    references public.profiles(id) on delete set null,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+create table public.shareholder_folders (
+  id               uuid        primary key default gen_random_uuid(),
+  shareholder_id   uuid        not null references public.profiles(id) on delete cascade,
+  parent_folder_id uuid        references public.shareholder_folders(id) on delete cascade,
+  name             text        not null,
+  created_by       uuid        references public.profiles(id),
+  created_at       timestamptz not null default now()
 );
 
--- ── Industry partner content (documents, events, programs) ─────────────────
+create index shareholder_folders_shareholder_id_idx   on public.shareholder_folders(shareholder_id);
+create index shareholder_folders_parent_folder_id_idx on public.shareholder_folders(parent_folder_id);
+
+create table public.shareholder_documents (
+  id             uuid primary key default gen_random_uuid(),
+  title          text    not null,
+  description    text,
+  category       text    not null default 'general'
+                   check (category in (
+                     'general', 'report', 'financial', 'meeting', 'governance',
+                     'meeting_followup', 'contract', 'invoice',
+                     'payment_proof', 'grant_app', 'other'
+                   )),
+  file_url       text,
+  storage_path   text,
+  file_name      text,
+  size_bytes     bigint,
+  mime_type      text,
+  published      boolean not null default true,
+  shared_with    uuid[],
+  shareholder_id uuid    references public.profiles(id) on delete cascade,
+  folder_id      uuid    references public.shareholder_folders(id) on delete set null,
+  created_by     uuid    references public.profiles(id) on delete set null,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create index shareholder_documents_shared_with_idx   on public.shareholder_documents using gin (shared_with);
+create index shareholder_documents_shareholder_id_idx on public.shareholder_documents(shareholder_id);
+create index shareholder_documents_folder_id_idx      on public.shareholder_documents(folder_id);
+
+-- ── Industry partner content (folders, documents, events) ───────────────────
+create table public.partner_folders (
+  id               uuid        primary key default gen_random_uuid(),
+  partner_id       uuid        not null references public.profiles(id) on delete cascade,
+  parent_folder_id uuid        references public.partner_folders(id) on delete cascade,
+  name             text        not null,
+  created_by       uuid        references public.profiles(id),
+  created_at       timestamptz not null default now()
+);
+
+create index partner_folders_partner_id_idx       on public.partner_folders(partner_id);
+create index partner_folders_parent_folder_id_idx on public.partner_folders(parent_folder_id);
+
 create table public.partner_documents (
   id           uuid primary key default gen_random_uuid(),
   title        text    not null,
   description  text,
-  category     text    not null default 'general',
+  category     text    not null default 'general'
+                 check (category in (
+                   'general', 'report', 'impact',
+                   'meeting_followup', 'contract', 'invoice',
+                   'payment_proof', 'grant_app', 'other'
+                 )),
   file_url     text,
   storage_path text,
   file_name    text,
   size_bytes   bigint,
   mime_type    text,
   published    boolean not null default true,
+  partner_id   uuid    references public.profiles(id) on delete cascade,
+  folder_id    uuid    references public.partner_folders(id) on delete set null,
   created_by   uuid    references public.profiles(id) on delete set null,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+
+create index partner_documents_partner_id_idx on public.partner_documents(partner_id);
+create index partner_documents_folder_id_idx  on public.partner_documents(folder_id);
 
 create table public.partner_events (
-  id           uuid primary key default gen_random_uuid(),
-  title        text    not null,
-  description  text,
-  event_date   date,
-  location     text,
-  link         text,
-  published    boolean not null default true,
-  position     integer not null default 0,
-  created_by   uuid    references public.profiles(id) on delete set null,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  id                uuid primary key default gen_random_uuid(),
+  title             text    not null,
+  description       text,
+  event_date        date,
+  location          text,
+  link              text,
+  published         boolean not null default true,
+  position          integer not null default 0,
+  target            text    not null default 'all' check (target in ('all', 'industry', 'government', 'specific')),
+  target_partner_id uuid    references public.profiles(id) on delete cascade,
+  created_by        uuid    references public.profiles(id) on delete set null,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
-create table public.partner_programs (
-  id           uuid primary key default gen_random_uuid(),
-  title        text    not null,
-  description  text,
-  status       text    not null default 'active' check (status in ('active', 'upcoming', 'completed')),
-  published    boolean not null default true,
-  position     integer not null default 0,
-  created_by   uuid    references public.profiles(id) on delete set null,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+create index partner_events_target_partner_id_idx on public.partner_events(target_partner_id);
+
+-- ── Partner / shareholder announcements (message + optional file) ──────────
+create table public.partner_announcements (
+  id                uuid        primary key default gen_random_uuid(),
+  title             text        not null,
+  body              text        not null,
+  target            text        not null check (target in ('all', 'industry', 'government', 'specific')),
+  target_partner_id uuid        references public.profiles(id) on delete cascade,
+  storage_path      text,
+  file_name         text,
+  size_bytes        bigint,
+  mime_type         text,
+  created_by        uuid        not null references public.profiles(id),
+  created_at        timestamptz not null default now()
+);
+
+create index partner_announcements_target_partner_id_idx on public.partner_announcements(target_partner_id);
+
+create table public.shareholder_announcements (
+  id                     uuid        primary key default gen_random_uuid(),
+  title                  text        not null,
+  body                   text        not null,
+  target                 text        not null check (target in ('all', 'specific')),
+  target_shareholder_ids uuid[],
+  storage_path           text,
+  file_name              text,
+  size_bytes             bigint,
+  mime_type              text,
+  created_by             uuid        not null references public.profiles(id),
+  created_at             timestamptz not null default now()
+);
+
+-- ── Credits page content (single-row, admin-editable) ───────────────────────
+create table public.credits_page_content (
+  id          uuid        primary key default gen_random_uuid(),
+  intro_text  text        not null,
+  claim_text  text        not null,
+  actions     jsonb       not null default '[]'::jsonb,
+  updated_at  timestamptz not null default now(),
+  updated_by  uuid references public.profiles(id),
+  created_at  timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------
@@ -1052,9 +1168,14 @@ alter table public.drive_items                enable row level security;
 alter table public.job_postings               enable row level security;
 alter table public.job_applications           enable row level security;
 alter table public.shareholder_documents      enable row level security;
+alter table public.shareholder_folders        enable row level security;
 alter table public.partner_documents          enable row level security;
+alter table public.partner_folders            enable row level security;
 alter table public.partner_events             enable row level security;
-alter table public.partner_programs           enable row level security;
+alter table public.partner_announcements      enable row level security;
+alter table public.shareholder_announcements  enable row level security;
+alter table public.credits_page_content       enable row level security;
+alter table public.career_updates             enable row level security;
 alter table public.point_transactions         enable row level security;
 alter table public.notifications              enable row level security;
 
@@ -1356,31 +1477,97 @@ create policy "applications_admin_update" on public.job_applications
 create policy "applications_own_delete" on public.job_applications
   for delete to authenticated using (user_id = auth.uid());
 
--- ── Shareholder documents ──────────────────────────────────────────────────
+-- ── Shareholder documents & folders ─────────────────────────────────────────
 create policy "sharedocs_read" on public.shareholder_documents
   for select to authenticated
-  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('shareholder', 'bioechem_admin'));
+  using (
+    published = true
+    and (
+      shareholder_id = auth.uid()
+      or (shareholder_id is null and (shared_with is null or auth.uid() = any(shared_with)))
+    )
+  );
 create policy "sharedocs_admin_all" on public.shareholder_documents
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
--- ── Partner content ────────────────────────────────────────────────────────
+create policy "shareholder_folders_admin_all" on public.shareholder_folders
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+create policy "shareholder_folders_read_own" on public.shareholder_folders
+  for select to authenticated using (shareholder_id = auth.uid());
+
+-- ── Partner content & folders ────────────────────────────────────────────────
 create policy "partnerdocs_read" on public.partner_documents
   for select to authenticated
   using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
 create policy "partnerdocs_admin_all" on public.partner_documents
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+create policy "partnerdocs_own_folder_select" on public.partner_documents
+  for select to authenticated using (partner_id = auth.uid());
+create policy "partnerdocs_own_folder_insert" on public.partner_documents
+  for insert to authenticated with check (partner_id = auth.uid() and created_by = auth.uid());
+
+create policy "partner_folders_admin_all" on public.partner_folders
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+create policy "partner_folders_read_own" on public.partner_folders
+  for select to authenticated using (partner_id = auth.uid());
 
 create policy "partnerevents_read" on public.partner_events
   for select to authenticated
-  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+  using (
+    published = true
+    and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin')
+    and (
+      target = 'all'
+      or (target = 'specific' and target_partner_id = auth.uid())
+      or (
+        target in ('industry', 'government')
+        and target = (select partner_type from public.profiles where id = auth.uid())
+      )
+    )
+  );
 create policy "partnerevents_admin_all" on public.partner_events
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
-create policy "partnerprograms_read" on public.partner_programs
-  for select to authenticated
-  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
-create policy "partnerprograms_admin_all" on public.partner_programs
+-- ── Partner / shareholder announcements ─────────────────────────────────────
+create policy "partner_announcements_admin_all" on public.partner_announcements
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+create policy "partner_announcements_partner_read" on public.partner_announcements
+  for select to authenticated
+  using (
+    target = 'all'
+    or (target = 'specific' and target_partner_id = auth.uid())
+    or (
+      target in ('industry', 'government')
+      and target = (select partner_type from public.profiles where id = auth.uid())
+    )
+  );
+
+create policy "shareholder_announcements_admin_all" on public.shareholder_announcements
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+create policy "shareholder_announcements_read" on public.shareholder_announcements
+  for select to authenticated
+  using (
+    target = 'all'
+    or (target = 'specific' and auth.uid() = any(target_shareholder_ids))
+  );
+
+-- ── Credits page content ─────────────────────────────────────────────────────
+create policy "credits_content_read" on public.credits_page_content
+  for select to authenticated using (public.is_approved());
+create policy "credits_content_admin_write" on public.credits_page_content
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
+
+-- ── Career updates ───────────────────────────────────────────────────────────
+create policy "career_updates_own_read" on public.career_updates
+  for select to authenticated using (user_id = auth.uid());
+create policy "career_updates_own_write" on public.career_updates
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "career_updates_manager_read" on public.career_updates
+  for select to authenticated using (public.can_manage_cohort(cohort_id));
+create policy "career_updates_manager_comment" on public.career_updates
+  for update to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 
 -- ── Reward points ──────────────────────────────────────────────────────────
 create policy "users_read_own_points" on public.point_transactions
@@ -1532,3 +1719,15 @@ where s.slug = 'demo-partner-high'
     select 1 from public.cohorts c
     where c.school_id = s.id and c.name = 'Fall 2026 Bio Battery Cohort'
   );
+
+insert into public.credits_page_content (intro_text, claim_text, actions)
+select
+  'BioEchem wants to recognize students and teachers who stay active and engaged on the portal — keeping your profile current, sharing feedback, and following through on your program. Every time you do one of the actions below, you earn credits. Credits can later be redeemed for reimbursement (e.g. program-related expenses) or to purchase BioEchem items.',
+  'Since this isn''t automated yet, keep a note of what you did and when (e.g. "updated my career path on March 3"), then email us to claim your credits.',
+  '[
+    {"action": "Update your Career Path & Interests", "credits": "1 credit", "note": "Each time you meaningfully update it in a cohort — e.g. new interests, plans, or an attached document."},
+    {"action": "Submit program feedback or a survey", "credits": "2 credits", "note": "Halfway, final, or custom surveys sent by BioEchem."},
+    {"action": "Complete your profile & background", "credits": "1 credit", "note": "Filling in your background section (education, work experience, etc.) once it''s fully complete."},
+    {"action": "Complete a program / earn a certificate", "credits": "5 credits", "note": "Awarded when you finish a cohort and receive your certificate."}
+  ]'::jsonb
+where not exists (select 1 from public.credits_page_content);
