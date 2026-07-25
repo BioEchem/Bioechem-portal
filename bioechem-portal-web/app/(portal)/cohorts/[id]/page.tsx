@@ -13,6 +13,7 @@ import { EnrollmentReviewTable, type ReviewableEnrollment, type ReviewerNames } 
 import { RosterPeopleTable, type RosterEntry } from "@/components/cohorts/roster-people-table";
 import { ClassroomView, type ClassSession, type SessionRecording } from "@/components/cohorts/classroom/classroom-view";
 import { CareerPathSelfSection, CareerPathManagerSection } from "@/components/cohorts/career-path-section";
+import { CohortFeedbackSelfSection, CohortFeedbackManagerSection } from "@/components/cohorts/cohort-feedback-section";
 import { AssignmentDetailBody } from "@/components/cohorts/assignment-detail-body";
 import { ModuleDetailBody } from "@/components/cohorts/module-detail-body";
 import { requireSession } from "@/lib/auth/session";
@@ -1021,6 +1022,19 @@ export default async function CohortHomePage({
             </PortalCard>
           ) : (
             <CareerPathSelfSection cohortId={cohortId} />
+          )
+
+        ) : tab === "feedback" && canViewContent ? (
+          canManage ? (
+            <CohortFeedbackManagerSection cohortId={cohortId} />
+          ) : isBioAdminViewing ? (
+            <PortalCard>
+              <p className="text-sm text-bio-text-muted">
+                Feedback submission is disabled while previewing as another user.
+              </p>
+            </PortalCard>
+          ) : (
+            <CohortFeedbackSelfSection cohortId={cohortId} />
           )
 
         ) : tab === "certificates" && isApprovedEnrolled ? (

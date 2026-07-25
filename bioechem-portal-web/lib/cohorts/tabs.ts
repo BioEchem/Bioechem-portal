@@ -28,6 +28,7 @@ export function buildCohortTabs({
     ...(canViewContent ? [{ key: "classroom", label: "Classroom" }] : []),
     ...(canViewContent ? [{ key: "grades", label: "Grades" }] : []),
     ...(canViewContent ? [{ key: "career_path", label: "Career Path" }] : []),
+    ...(canViewContent ? [{ key: "feedback", label: "Feedback" }] : []),
     ...((isApprovedEnrolled || isBioAdminViewing) ? [{ key: "certificates", label: "Certificates" }] : []),
     ...(canViewContent ? [{ key: "roster", label: "Roster", badge: canManage ? pendingCount : 0 }] : []),
   ];

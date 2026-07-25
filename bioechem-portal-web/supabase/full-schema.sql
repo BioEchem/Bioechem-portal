@@ -32,6 +32,7 @@ drop table if exists public.partner_programs       cascade;
 drop table if exists public.job_applications       cascade;
 drop table if exists public.job_postings           cascade;
 drop table if exists public.career_updates         cascade;
+drop table if exists public.cohort_feedback        cascade;
 
 -- LMS tables
 drop table if exists public.cohort_contacts        cascade;
@@ -495,6 +496,24 @@ create table public.career_updates (
 
 create index career_updates_cohort_id_idx on public.career_updates(cohort_id);
 create index career_updates_user_id_idx   on public.career_updates(user_id);
+
+-- ---------------------------------------------------------------------------
+-- COHORT FEEDBACK (participant rating + comment, separate from surveys)
+-- ---------------------------------------------------------------------------
+
+create table public.cohort_feedback (
+  id         uuid        primary key default gen_random_uuid(),
+  cohort_id  uuid        not null references public.cohorts(id) on delete cascade,
+  user_id    uuid        not null references public.profiles(id) on delete cascade,
+  rating     smallint    not null check (rating between 1 and 5),
+  comment    text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (cohort_id, user_id)
+);
+
+create index cohort_feedback_cohort_id_idx on public.cohort_feedback(cohort_id);
+create index cohort_feedback_user_id_idx   on public.cohort_feedback(user_id);
 
 -- ---------------------------------------------------------------------------
 -- LMS: MODULES
@@ -1176,6 +1195,7 @@ alter table public.partner_announcements      enable row level security;
 alter table public.shareholder_announcements  enable row level security;
 alter table public.credits_page_content       enable row level security;
 alter table public.career_updates             enable row level security;
+alter table public.cohort_feedback            enable row level security;
 alter table public.point_transactions         enable row level security;
 alter table public.notifications              enable row level security;
 
@@ -1568,6 +1588,18 @@ create policy "career_updates_manager_comment" on public.career_updates
   for update to authenticated
   using (public.can_manage_cohort(cohort_id))
   with check (public.can_manage_cohort(cohort_id));
+
+-- ── Cohort feedback ──────────────────────────────────────────────────────────
+-- Row-level security allows any cohort manager (teacher or admin) to read
+-- feedback rows; anonymizing the submitter from teachers (but not admins) is
+-- enforced in the API layer, which never selects/returns user identity for a
+-- teacher caller. See app/api/cohorts/[id]/feedback/route.ts.
+create policy "cohort_feedback_own_select" on public.cohort_feedback
+  for select to authenticated using (user_id = auth.uid());
+create policy "cohort_feedback_own_write" on public.cohort_feedback
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "cohort_feedback_manager_read" on public.cohort_feedback
+  for select to authenticated using (public.can_manage_cohort(cohort_id));
 
 -- ── Reward points ──────────────────────────────────────────────────────────
 create policy "users_read_own_points" on public.point_transactions
