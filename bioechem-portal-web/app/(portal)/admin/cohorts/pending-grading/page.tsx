@@ -43,16 +43,28 @@ export default async function AdminPendingGradingPage() {
     );
   }
 
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+  if (isSchoolAdmin && !isBioAdmin && !schoolAdminProfile.school_id) {
+    // Never fall back to an unfiltered query — that would leak every
+    // school's pending grading queue to an admin with no school on file.
+    return (
+      <PortalPage title="Pending grading">
+        <PortalCard>
+          <p className="text-sm text-bio-text-muted">
+            Your account isn&apos;t linked to a school yet. Contact BioEchem support.
+          </p>
+        </PortalCard>
+      </PortalPage>
+    );
+  }
+
   let assignmentsQuery = supabase
     .from("assignments")
     .select("id, cohort_id, module_item_id, cohorts(name, school_id), module_items(title)")
     .eq("requires_grading", true);
 
   if (isSchoolAdmin && !isBioAdmin) {
-    const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
-    if (schoolAdminProfile.school_id) {
-      assignmentsQuery = assignmentsQuery.eq("cohorts.school_id", schoolAdminProfile.school_id);
-    }
+    assignmentsQuery = assignmentsQuery.eq("cohorts.school_id", schoolAdminProfile.school_id as string);
   }
 
   const { data: assignments } = await assignmentsQuery.returns<

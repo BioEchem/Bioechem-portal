@@ -1518,7 +1518,11 @@ create policy "shareholder_folders_read_own" on public.shareholder_folders
 -- ── Partner content & folders ────────────────────────────────────────────────
 create policy "partnerdocs_read" on public.partner_documents
   for select to authenticated
-  using (published = true and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
+  using (
+    published = true
+    and partner_id is null
+    and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin')
+  );
 create policy "partnerdocs_admin_all" on public.partner_documents
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 create policy "partnerdocs_own_folder_select" on public.partner_documents

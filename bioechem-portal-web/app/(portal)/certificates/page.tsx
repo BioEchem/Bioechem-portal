@@ -13,8 +13,8 @@ export default async function CertificatesPage() {
 
   // Admins issue certificates from each cohort's admin page
   if (profile.role === "bioechem_admin") redirect("/admin/cohorts");
-  // Shareholders and industry partners don't take courses, so certificates don't apply to them
-  if (profile.role === "shareholder" || profile.role === "industry_partner") redirect("/dashboard");
+  // Shareholders, industry partners, and school admins don't take courses themselves, so certificates don't apply to them
+  if (profile.role === "shareholder" || profile.role === "industry_partner" || profile.role === "school_admin") redirect("/dashboard");
 
   const { data: raw } = await supabase
     .from("certificates")

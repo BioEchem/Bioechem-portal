@@ -55,6 +55,7 @@ export async function loadPartnerDashboardData(supabase: SupabaseServer): Promis
         .from("partner_documents")
         .select("id, title, category, created_at")
         .eq("published", true)
+        .is("partner_id", null)
         .order("created_at", { ascending: false })
         .limit(5)
         .returns<DocRow[]>(),

@@ -363,7 +363,7 @@ export default async function CohortHomePage({
 
   const { data: cohort } = await supabase
     .from("cohorts")
-    .select("id, name, description, start_date, end_date, max_enrollment, enrollment_requires_approval, status, schools(name)")
+    .select("id, name, description, start_date, end_date, max_enrollment, enrollment_requires_approval, status, school_id, schools(name)")
     .eq("id", cohortId)
     .single();
 
@@ -392,8 +392,12 @@ export default async function CohortHomePage({
     .eq("user_id", viewingUserId)
     .maybeSingle();
 
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
   const isBioAdmin = profile.role === "bioechem_admin";
-  const isSchoolAdmin = profile.role === "school_admin";
+  const isSchoolAdmin =
+    profile.role === "school_admin" &&
+    !!cohort.school_id &&
+    schoolAdminProfile.school_id === cohort.school_id;
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
   const isAdmin = isBioAdmin || isSchoolAdmin;
   // While previewing another user's view ("View as user"), never expose management

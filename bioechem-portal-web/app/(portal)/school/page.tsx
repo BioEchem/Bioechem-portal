@@ -23,7 +23,7 @@ type SchoolRow = {
 export default async function MySchoolPage() {
   const { supabase, profile } = await requireSession({
     requireApproved: true,
-    profileSelect: "role, school_id",
+    profileSelect: "approval_status, role, school_id",
   });
 
   const canView = profile.role === "participant" || profile.role === "teacher" || profile.role === "school_admin";

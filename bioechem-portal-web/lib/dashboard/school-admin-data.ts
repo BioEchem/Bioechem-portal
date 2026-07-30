@@ -8,6 +8,19 @@ type SchoolAdminCohortRow = {
   isActive: boolean;
 };
 
+type SchoolAdminCohortAverage = {
+  cohortId: string;
+  cohortName: string;
+  gradedCount: number;
+  averagePercent: number | null;
+};
+
+type SchoolAdminCurriculumEntry = {
+  cohortId: string;
+  cohortName: string;
+  moduleCount: number;
+};
+
 type SchoolAdminStudentRow = {
   id: string;
   fullName: string;
@@ -29,6 +42,8 @@ export type SchoolAdminDashboardData = {
   cohorts: SchoolAdminCohortRow[];
   students: SchoolAdminStudentRow[];
   teachers: SchoolAdminTeacherRow[];
+  gradeAverages: SchoolAdminCohortAverage[];
+  curriculum: SchoolAdminCurriculumEntry[];
   stats: {
     activeCohorts: number;
     totalTeachers: number;
@@ -91,6 +106,56 @@ export async function loadSchoolAdminDashboard(
       .length,
   }));
 
+  const cohortIds = cohorts.map((c) => c.id);
+  const cohortNameById = new Map(cohorts.map((c) => [c.id, c.name]));
+
+  const [{ data: gradeRows }, { data: moduleRows }] = cohortIds.length > 0
+    ? await Promise.all([
+        supabase
+          .from("grades")
+          .select("cohort_id, points_earned, assignments(max_points)")
+          .in("cohort_id", cohortIds)
+          .returns<{ cohort_id: string; points_earned: number | null; assignments: { max_points: number | null } | { max_points: number | null }[] | null }[]>(),
+        supabase
+          .from("modules")
+          .select("cohort_id")
+          .in("cohort_id", cohortIds)
+          .eq("published", true),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const gradesByCohort = new Map<string, { total: number; count: number }>();
+  for (const g of gradeRows ?? []) {
+    const maxPoints = Array.isArray(g.assignments) ? g.assignments[0]?.max_points : g.assignments?.max_points;
+    if (g.points_earned == null || !maxPoints || maxPoints <= 0) continue;
+    const pct = (g.points_earned / maxPoints) * 100;
+    const entry = gradesByCohort.get(g.cohort_id) ?? { total: 0, count: 0 };
+    entry.total += pct;
+    entry.count += 1;
+    gradesByCohort.set(g.cohort_id, entry);
+  }
+
+  const gradeAverages: SchoolAdminCohortAverage[] = cohorts.map((cohort) => {
+    const entry = gradesByCohort.get(cohort.id);
+    return {
+      cohortId: cohort.id,
+      cohortName: cohort.name,
+      gradedCount: entry?.count ?? 0,
+      averagePercent: entry && entry.count > 0 ? Math.round(entry.total / entry.count) : null,
+    };
+  });
+
+  const moduleCountByCohort = new Map<string, number>();
+  for (const m of moduleRows ?? []) {
+    moduleCountByCohort.set(m.cohort_id, (moduleCountByCohort.get(m.cohort_id) ?? 0) + 1);
+  }
+
+  const curriculum: SchoolAdminCurriculumEntry[] = cohorts.map((cohort) => ({
+    cohortId: cohort.id,
+    cohortName: cohortNameById.get(cohort.id) ?? cohort.name,
+    moduleCount: moduleCountByCohort.get(cohort.id) ?? 0,
+  }));
+
   return {
     schoolName: school.name,
     adminName,
@@ -108,6 +173,8 @@ export async function loadSchoolAdminDashboard(
       fullName: teacher.full_name?.trim() || "—",
       email: teacher.email,
     })),
+    gradeAverages,
+    curriculum,
     stats: {
       activeCohorts: cohorts.filter((cohort) => cohort.isActive).length,
       totalTeachers: teachers.length,

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return authError("Email is required.", 400);
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/callback?next=${AUTH_ROUTES.resetPassword}`,

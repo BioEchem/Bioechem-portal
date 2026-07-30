@@ -1,6 +1,5 @@
 import { PortalCard } from "@/components/portal/portal-page";
 import {
-  DashboardPlaceholderGrid,
   DashboardProfileCard,
   DashboardTable,
   DashboardWelcomeCard,
@@ -89,20 +88,37 @@ export function SchoolAdminDashboard({ data, asUserId }: SchoolAdminDashboardPro
         </div>
       </PortalCard>
 
-      <DashboardPlaceholderGrid
-        items={[
-          {
-            title: "Grades & averages",
-            description:
-              "Student grades and class averages will appear here once grading is enabled for your school.",
-          },
-          {
-            title: "Subject curriculum",
-            description:
-              "Subject curriculum and lesson plans for your cohorts will be listed here in a future update.",
-          },
-        ]}
-      />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PortalCard>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">
+            Grades &amp; averages
+          </h2>
+          <div className="mt-4">
+            <DashboardTable
+              headers={["Cohort", "Graded", "Average"]}
+              rows={data.gradeAverages.map((row) => [
+                row.cohortName,
+                String(row.gradedCount),
+                row.averagePercent != null ? `${row.averagePercent}%` : "—",
+              ])}
+              emptyMessage="No grades have been recorded for your school's cohorts yet."
+            />
+          </div>
+        </PortalCard>
+
+        <PortalCard>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">
+            Curriculum overview
+          </h2>
+          <div className="mt-4">
+            <DashboardTable
+              headers={["Cohort", "Published modules"]}
+              rows={data.curriculum.map((entry) => [entry.cohortName, String(entry.moduleCount)])}
+              emptyMessage="No published modules yet for your school's cohorts."
+            />
+          </div>
+        </PortalCard>
+      </div>
     </div>
   );
 }

@@ -139,7 +139,7 @@ function DocForm({
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)}
           className="h-4 w-4 rounded border-card-border accent-bio-green" />
-        <span className="text-bio-text">Published (visible to industry partners)</span>
+        <span className="text-bio-text">Published (visible to all partners)</span>
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -34,12 +34,12 @@ export async function ModuleDetailBody({
 }) {
   const { supabase, user, profile } = await requireSession({
     requireApproved: true,
-    profileSelect: "approval_status, role",
+    profileSelect: "approval_status, role, school_id",
   });
 
   const { data: mod } = await supabase
     .from("modules")
-    .select("id, title, description, published, cohort_id")
+    .select("id, title, description, published, cohort_id, cohorts(school_id)")
     .eq("id", moduleId)
     .single();
 
@@ -52,8 +52,16 @@ export async function ModuleDetailBody({
     .eq("user_id", user.id)
     .maybeSingle();
 
+  type CohortRef = { school_id: string | null };
+  const cohortRef = Array.isArray(mod.cohorts) ? mod.cohorts[0] : (mod.cohorts as CohortRef | null);
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
-  const canManage = profile.role === "bioechem_admin" || isTeacher;
+  const isSchoolAdmin =
+    profile.role === "school_admin" &&
+    !!cohortRef?.school_id &&
+    schoolAdminProfile.school_id === cohortRef.school_id;
+  const canManage = profile.role === "bioechem_admin" || isSchoolAdmin || isTeacher;
   const isEnrolled = enrollment?.status === "approved";
 
   if (!canManage && !isEnrolled) notFound();

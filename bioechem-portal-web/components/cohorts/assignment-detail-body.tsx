@@ -34,12 +34,12 @@ export async function AssignmentDetailBody({
 }) {
   const { supabase, user, profile } = await requireSession({
     requireApproved: true,
-    profileSelect: "approval_status, role",
+    profileSelect: "approval_status, role, school_id",
   });
 
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id, due_at, max_points, requires_grading, grade_category, assignment_type, submission_type, instructions, cohort_id, module_items(id, title, content, file_url, module_id, published)")
+    .select("id, due_at, max_points, requires_grading, grade_category, assignment_type, submission_type, instructions, cohort_id, cohorts(school_id), module_items(id, title, content, file_url, module_id, published)")
     .eq("id", assignmentId)
     .single();
 
@@ -52,8 +52,16 @@ export async function AssignmentDetailBody({
     .eq("user_id", user.id)
     .maybeSingle();
 
+  type CohortRef = { school_id: string | null };
+  const cohortRef = Array.isArray(assignment.cohorts) ? assignment.cohorts[0] : (assignment.cohorts as CohortRef | null);
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
-  const canManage = profile.role === "bioechem_admin" || isTeacher;
+  const isSchoolAdmin =
+    profile.role === "school_admin" &&
+    !!cohortRef?.school_id &&
+    schoolAdminProfile.school_id === cohortRef.school_id;
+  const canManage = profile.role === "bioechem_admin" || isSchoolAdmin || isTeacher;
   const isParticipant = enrollment?.role === "participant" && enrollment?.status === "approved";
 
   if (!canManage && !isParticipant) notFound();

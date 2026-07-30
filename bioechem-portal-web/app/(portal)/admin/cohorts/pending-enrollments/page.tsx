@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 import { PendingEnrollmentsView, type PendingEnrollmentRow } from "@/components/admin/pending-enrollments-view";
-import { PortalPage } from "@/components/portal/portal-page";
+import { PortalCard, PortalPage } from "@/components/portal/portal-page";
 import { requireSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Pending cohort enrollments" };
@@ -26,6 +26,31 @@ export default async function AdminPendingEnrollmentsPage() {
   const isBioAdmin = profile.role === "bioechem_admin";
   const isSchoolAdmin = profile.role === "school_admin";
 
+  if (!isBioAdmin && !isSchoolAdmin) {
+    return (
+      <PortalPage title="Pending cohort enrollments">
+        <PortalCard>
+          <p className="text-sm text-bio-text-muted">Access denied.</p>
+        </PortalCard>
+      </PortalPage>
+    );
+  }
+
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+  if (isSchoolAdmin && !isBioAdmin && !schoolAdminProfile.school_id) {
+    // Never fall back to an unfiltered query — that would leak every
+    // school's pending enrollments to an admin with no school on file.
+    return (
+      <PortalPage title="Pending cohort enrollments">
+        <PortalCard>
+          <p className="text-sm text-bio-text-muted">
+            Your account isn&apos;t linked to a school yet. Contact BioEchem support.
+          </p>
+        </PortalCard>
+      </PortalPage>
+    );
+  }
+
   let query = supabase
     .from("cohort_enrollments")
     .select("id, user_id, role, enrolled_at, profiles!user_id(full_name, email), cohorts(id, name, school_id, schools(name))")
@@ -33,10 +58,7 @@ export default async function AdminPendingEnrollmentsPage() {
     .order("enrolled_at", { ascending: true });
 
   if (isSchoolAdmin && !isBioAdmin) {
-    const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
-    if (schoolAdminProfile.school_id) {
-      query = query.eq("cohorts.school_id", schoolAdminProfile.school_id);
-    }
+    query = query.eq("cohorts.school_id", schoolAdminProfile.school_id as string);
   }
 
   const { data } = await query.returns<EnrollmentRow[]>();

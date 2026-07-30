@@ -39,8 +39,8 @@ export type PortalNavSection = {
   items: PortalNavItem[];
 };
 
-// Shareholders and industry partners don't take courses, so certificates aren't relevant to them.
-const ROLES_WITHOUT_CERTIFICATES = new Set(["shareholder", "industry_partner"]);
+// Shareholders, industry partners, and school admins don't take courses themselves, so certificates aren't relevant to them.
+const ROLES_WITHOUT_CERTIFICATES = new Set(["shareholder", "industry_partner", "school_admin"]);
 
 function buildAccountSection(role: string | null): PortalNavSection {
   const items: PortalNavItem[] = [
@@ -135,9 +135,10 @@ function buildPortalItems(role: string | null): PortalNavItem[] {
     });
   }
 
-  // Participants, teachers, and school admins belong to a partner school
-  // and can see that school's info + contact details.
-  if (role === "participant" || role === "teacher" || role === "school_admin") {
+  // Participants and teachers belong to a partner school and can see that
+  // school's info + contact details. School admins already see their school's
+  // name and details on their dashboard, so this is left off for them.
+  if (role === "participant" || role === "teacher") {
     items.push({
       label: "My School",
       href: PORTAL_ROUTES.school,

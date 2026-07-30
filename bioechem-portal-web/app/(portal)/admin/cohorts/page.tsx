@@ -38,16 +38,28 @@ export default async function AdminCohortsPage() {
     );
   }
 
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+  if (isSchoolAdmin && !isBioAdmin && !schoolAdminProfile.school_id) {
+    // A school admin must be linked to a school — never fall back to an
+    // unfiltered query, which would leak every school's cohorts.
+    return (
+      <PortalPage title="Cohorts">
+        <PortalCard>
+          <p className="text-sm text-bio-text-muted">
+            Your account isn&apos;t linked to a school yet. Contact BioEchem support.
+          </p>
+        </PortalCard>
+      </PortalPage>
+    );
+  }
+
   let query = supabase
     .from("cohorts")
     .select("id, name, status, max_enrollment, enrollment_requires_approval, start_date, end_date, created_at, schools(id, name)")
     .order("name");
 
   if (isSchoolAdmin && !isBioAdmin) {
-    const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
-    if (schoolAdminProfile.school_id) {
-      query = query.eq("school_id", schoolAdminProfile.school_id);
-    }
+    query = query.eq("school_id", schoolAdminProfile.school_id as string);
   }
 
   const { data: cohorts } = await query.returns<CohortRow[]>();

@@ -36,7 +36,7 @@ export function PartnerDashboard({ user, data, asUserId }: PartnerDashboardProps
           {
             label: "Messaging",
             href: PORTAL_ROUTES.messaging,
-            description: "Connect with BioEchem staff and partner schools.",
+            description: "Connect with BioEchem staff.",
           },
         ]}
       />

@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 export async function GET() {
   const { supabase, user, profile } = await requireSession({
     requireApproved: true,
-    profileSelect: "role",
+    profileSelect: "approval_status, role",
   });
 
   // Shareholders and industry partners don't take courses, so certificates don't apply to them
