@@ -26,6 +26,14 @@ const PARTICIPANT_NAV: RoleNavConfig = {
   includePartnerContent: false,
 };
 
+// Same as participant nav, but surveys are a participant self-response tool —
+// teachers have no oversight view for them (survey administration is
+// admin-only via /admin/surveys), so the nav link isn't useful to them.
+const TEACHER_NAV: RoleNavConfig = {
+  ...PARTICIPANT_NAV,
+  includeSurveys: false,
+};
+
 export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
   participant: {
     dashboardDescription: "Your student home in the portal.",
@@ -37,7 +45,7 @@ export const ROLE_CONFIG: Record<SignupRole, RoleConfig> = {
     dashboardDescription: "Your teaching overview.",
     welcomeSubtitle:
       "Your teaching dashboard — manage classes, assignments, and student progress.",
-    nav: PARTICIPANT_NAV,
+    nav: TEACHER_NAV,
   },
   school_admin: {
     dashboardDescription: "Your school admin home.",

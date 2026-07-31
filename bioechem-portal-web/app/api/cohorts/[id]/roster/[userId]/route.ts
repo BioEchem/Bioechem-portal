@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { letterGrade as computeLetterGrade } from "@/lib/grades/format";
 
 type Params = { params: Promise<{ id: string; userId: string }> };
@@ -81,7 +82,12 @@ export async function GET(_req: Request, { params }: Params) {
     profiles: { full_name: string | null; email: string | null; bio: string | null; schools: { name: string } | { name: string }[] | null } | null;
   };
 
-  const { data: targetEnrollment } = await supabase
+  // Access to this cohort/user pair is already verified above. Teachers have
+  // no RLS SELECT policy on other users' `profiles` rows, so the embedded
+  // profile in this join would silently come back null for them — use the
+  // service-role client to bypass that, matching the roster list's pattern.
+  const rosterClient = createServiceRoleClient() ?? supabase;
+  const { data: targetEnrollment } = await rosterClient
     .from("cohort_enrollments")
     .select("role, status, enrolled_at, profiles!user_id(full_name, email, bio, schools(name))")
     .eq("cohort_id", cohortId)

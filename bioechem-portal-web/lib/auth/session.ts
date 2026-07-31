@@ -72,6 +72,28 @@ const fetchSessionData = cache(
   },
 );
 
+/**
+ * True when the current session was established via a password-recovery
+ * link rather than a normal login — Supabase marks this in the access
+ * token's `amr` (authentication method reference) claim.
+ */
+async function isRecoverySession(supabase: SupabaseServer): Promise<boolean> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return false;
+
+  try {
+    const payload = token.split(".")[1];
+    const json = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const claims = JSON.parse(json) as { amr?: { method?: string }[] };
+    return claims.amr?.some((entry) => entry.method === "recovery") ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /** Loads the signed-in user and profile; redirects to login if unauthenticated. */
 export async function requireSession<TProfile extends SessionProfile = SessionProfile>(
   options: RequireSessionOptions = {},
@@ -96,6 +118,12 @@ export async function requireSession<TProfile extends SessionProfile = SessionPr
   }
 
   const { supabase, user, profile } = result;
+
+  // A password-recovery session must only be used to set a new password —
+  // never treated as a normal login into the portal.
+  if (await isRecoverySession(supabase)) {
+    redirect(AUTH_ROUTES.resetPassword);
+  }
 
   if (options.requireApproved && profile.approval_status !== "approved") {
     redirect(

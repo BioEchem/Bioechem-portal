@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 
+import { PortalCard } from "@/components/portal/portal-page";
 import {
-  DashboardPlaceholder,
   DashboardQuickLinks,
   DashboardShell,
+  DashboardTable,
 } from "@/components/portal/dashboard-ui";
 import {
   buildDashboardProfileFields,
@@ -20,14 +21,21 @@ type TeacherStats = {
   pendingGradingCount: number;
 };
 
+type TeacherCurriculumEntry = {
+  cohortId: string;
+  cohortName: string;
+  moduleCount: number;
+};
+
 type TeacherDashboardProps = {
   user: DashboardUserContext;
   stats: TeacherStats;
+  curriculum: TeacherCurriculumEntry[];
   /** Set when a bioechem_admin is previewing this dashboard as another user. */
   asUserId?: string;
 };
 
-export function TeacherDashboard({ user, stats, asUserId }: TeacherDashboardProps) {
+export function TeacherDashboard({ user, stats, curriculum, asUserId }: TeacherDashboardProps) {
   const hasClasses = stats.classCount > 0;
   const asQuery = asUserId ? `?as=${asUserId}` : "";
 
@@ -94,10 +102,18 @@ export function TeacherDashboard({ user, stats, asUserId }: TeacherDashboardProp
       )}
 
       {hasClasses ? (
-        <DashboardPlaceholder
-          title="Subject curriculum"
-          description="Lesson plans and subject materials for your cohorts will be listed here."
-        />
+        <PortalCard>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">
+            Curriculum overview
+          </h2>
+          <div className="mt-4">
+            <DashboardTable
+              headers={["Cohort", "Published modules"]}
+              rows={curriculum.map((entry) => [entry.cohortName, String(entry.moduleCount)])}
+              emptyMessage="No published modules yet for your classes."
+            />
+          </div>
+        </PortalCard>
       ) : null}
     </DashboardShell>
   );

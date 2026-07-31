@@ -102,6 +102,7 @@ export default async function QuizPage({
     canViewContent: canManage || isParticipant,
     canManage,
     isApprovedEnrolled: isParticipant,
+    isTeacher,
   });
 
   return (

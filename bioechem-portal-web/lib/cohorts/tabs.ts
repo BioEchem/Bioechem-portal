@@ -10,6 +10,7 @@ export function buildCohortTabs({
   canManage,
   isApprovedEnrolled,
   isBioAdminViewing = false,
+  isTeacher = false,
   pendingCount = 0,
   ungradedTotalCount = 0,
 }: {
@@ -17,6 +18,7 @@ export function buildCohortTabs({
   canManage: boolean;
   isApprovedEnrolled: boolean;
   isBioAdminViewing?: boolean;
+  isTeacher?: boolean;
   pendingCount?: number;
   ungradedTotalCount?: number;
 }): CohortTab[] {
@@ -24,12 +26,16 @@ export function buildCohortTabs({
     { key: "home", label: "Home" },
     ...(canViewContent ? [{ key: "modules", label: "Modules" }] : []),
     ...(canViewContent ? [{ key: "assignments", label: "Assignments", badge: canManage ? ungradedTotalCount : 0 }] : []),
-    ...(canViewContent ? [{ key: "surveys", label: "Surveys" }] : []),
+    // Surveys is a participant self-response tool with no teacher oversight
+    // view — not useful for a teacher (survey administration is admin-only).
+    ...(canViewContent && !isTeacher ? [{ key: "surveys", label: "Surveys" }] : []),
     ...(canViewContent ? [{ key: "classroom", label: "Classroom" }] : []),
     ...(canViewContent ? [{ key: "grades", label: "Grades" }] : []),
     ...(canViewContent ? [{ key: "career_path", label: "Career Path" }] : []),
     ...(canViewContent ? [{ key: "feedback", label: "Feedback" }] : []),
-    ...((isApprovedEnrolled || isBioAdminViewing) ? [{ key: "certificates", label: "Certificates" }] : []),
+    // Certificates are course-completion records for participants — not
+    // relevant to a teacher's own view of the cohort.
+    ...((isApprovedEnrolled || isBioAdminViewing) && !isTeacher ? [{ key: "certificates", label: "Certificates" }] : []),
     ...(canViewContent ? [{ key: "roster", label: "Roster", badge: canManage ? pendingCount : 0 }] : []),
   ];
 }

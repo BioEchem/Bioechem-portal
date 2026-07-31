@@ -39,8 +39,8 @@ export type PortalNavSection = {
   items: PortalNavItem[];
 };
 
-// Shareholders, industry partners, and school admins don't take courses themselves, so certificates aren't relevant to them.
-const ROLES_WITHOUT_CERTIFICATES = new Set(["shareholder", "industry_partner", "school_admin"]);
+// Shareholders, industry partners, school admins, and teachers don't take courses themselves, so certificates aren't relevant to them.
+const ROLES_WITHOUT_CERTIFICATES = new Set(["shareholder", "industry_partner", "school_admin", "teacher"]);
 
 function buildAccountSection(role: string | null): PortalNavSection {
   const items: PortalNavItem[] = [

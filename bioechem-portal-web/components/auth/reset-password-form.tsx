@@ -128,6 +128,13 @@ export function ResetPasswordForm() {
       <button type="submit" disabled={pending} className={authSubmitButtonClassName}>
         {pending ? "Updating…" : "Update password"}
       </button>
+
+      <p className="text-center text-sm text-bio-text-muted">
+        Changed your mind?{" "}
+        <Link href={AUTH_ROUTES.login} className="font-medium text-bio-green hover:underline">
+          Back to login
+        </Link>
+      </p>
     </form>
   );
 }

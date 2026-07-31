@@ -159,6 +159,7 @@ export default async function DashboardPage({
     let studentCount = 0;
     let assignmentCount = 0;
     let pendingGradingCount = 0;
+    let curriculum: { cohortId: string; cohortName: string; moduleCount: number }[] = [];
     if (cohortIds.length > 0) {
       const [studentRes, assignmentRes, gradableAssignmentsRes] = await Promise.all([
         dataClient
@@ -195,6 +196,22 @@ export default async function DashboardPage({
         const gradedSubmissionIds = new Set((gradesRes.data ?? []).map((g) => g.submission_id as string));
         pendingGradingCount = (submissionsRes.data ?? []).filter((s) => !gradedSubmissionIds.has(s.id as string)).length;
       }
+
+      const [{ data: cohortRows }, { data: moduleRows }] = await Promise.all([
+        dataClient.from("cohorts").select("id, name").in("id", cohortIds),
+        dataClient.from("modules").select("cohort_id").in("cohort_id", cohortIds).eq("published", true),
+      ]);
+      const cohortNameById = new Map((cohortRows ?? []).map((c) => [c.id as string, c.name as string]));
+      const moduleCountByCohort = new Map<string, number>();
+      for (const m of moduleRows ?? []) {
+        const cId = m.cohort_id as string;
+        moduleCountByCohort.set(cId, (moduleCountByCohort.get(cId) ?? 0) + 1);
+      }
+      curriculum = cohortIds.map((id) => ({
+        cohortId: id,
+        cohortName: cohortNameById.get(id) ?? "—",
+        moduleCount: moduleCountByCohort.get(id) ?? 0,
+      }));
     }
 
     return (
@@ -203,6 +220,7 @@ export default async function DashboardPage({
         <TeacherDashboard
           user={userContext}
           stats={{ classCount: cohortIds.length, studentCount, assignmentCount, pendingGradingCount }}
+          curriculum={curriculum}
           asUserId={isBioAdminViewing ? asUserId : undefined}
         />
       </PortalPage>

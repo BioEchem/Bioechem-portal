@@ -557,7 +557,7 @@ export default async function CohortHomePage({
 
   // Fetch certificates for certificates tab
   let myCertificates: CertificateRow[] = [];
-  if (tab === "certificates" && (isApprovedEnrolled || isBioAdminViewing)) {
+  if (tab === "certificates" && (isApprovedEnrolled || isBioAdminViewing) && !isTeacher) {
     const { data } = await db
       .from("certificates")
       .select("id, title, file_url, filename, uploaded_at")
@@ -574,14 +574,19 @@ export default async function CohortHomePage({
   let classGrades: ClassGradeRow[] = [];
   if (tab === "grades" && canViewContent) {
     if (canManage) {
+      // Teachers have no RLS SELECT policy on other users' `profiles` rows,
+      // so the embedded profile in this join would silently come back null
+      // for them. canManage is already verified above, so it's safe to use
+      // the service-role client here — same pattern as the roster list query.
+      const gradesClient = createServiceRoleClient() ?? supabase;
       const [{ data: participantRows }, { data: allGrades }] = await Promise.all([
-        supabase
+        gradesClient
           .from("cohort_enrollments")
           .select("user_id, profiles!user_id(full_name, email)")
           .eq("cohort_id", cohortId)
           .eq("role", "participant")
           .eq("status", "approved"),
-        supabase
+        gradesClient
           .from("grades")
           .select("user_id, points_earned, assignments(max_points)")
           .eq("cohort_id", cohortId),
@@ -601,7 +606,10 @@ export default async function CohortHomePage({
       }
 
       classGrades = (participantRows ?? []).map((p) => {
-        const profile = p.profiles as unknown as { full_name: string | null; email: string | null } | null;
+        const profileRaw = p.profiles as unknown;
+        const profile = (Array.isArray(profileRaw) ? profileRaw[0] : profileRaw) as
+          | { full_name: string | null; email: string | null }
+          | null;
         const totals = totalsByUser.get(p.user_id as string) ?? { earned: 0, max: 0 };
         return {
           userId: p.user_id as string,
@@ -685,6 +693,7 @@ export default async function CohortHomePage({
     canManage,
     isApprovedEnrolled,
     isBioAdminViewing,
+    isTeacher,
     pendingCount,
     ungradedTotalCount,
   });
@@ -836,7 +845,7 @@ export default async function CohortHomePage({
             isBioAdminViewing={isBioAdminViewing}
           />
 
-        ) : tab === "surveys" && canViewContent ? (
+        ) : tab === "surveys" && canViewContent && !isTeacher ? (
           <SurveysTabContent surveys={cohortSurveys} isBioAdminViewing={isBioAdminViewing} />
 
         ) : tab === "classroom" && canViewContent ? (
@@ -1041,7 +1050,7 @@ export default async function CohortHomePage({
             <CohortFeedbackSelfSection cohortId={cohortId} />
           )
 
-        ) : tab === "certificates" && isApprovedEnrolled ? (
+        ) : tab === "certificates" && isApprovedEnrolled && !isTeacher ? (
           <CertificatesTabContent certificates={myCertificates} />
 
         ) : tab === "roster" && canViewContent ? (
