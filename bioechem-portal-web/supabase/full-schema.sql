@@ -1329,7 +1329,9 @@ create policy "modules_enrolled_select" on public.modules
   for select to authenticated
   using ((published = true and public.is_enrolled_in_cohort(cohort_id)) or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
 create policy "modules_teacher_write" on public.modules
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "modules_admin_all" on public.modules
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
@@ -1338,7 +1340,9 @@ create policy "module_items_enrolled_select" on public.module_items
   for select to authenticated
   using ((published = true and public.is_enrolled_in_cohort(cohort_id)) or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
 create policy "module_items_teacher_write" on public.module_items
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "module_items_admin_all" on public.module_items
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
@@ -1347,7 +1351,9 @@ create policy "assignments_enrolled_select" on public.assignments
   for select to authenticated
   using (public.is_enrolled_in_cohort(cohort_id) or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
 create policy "assignments_teacher_write" on public.assignments
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "assignments_admin_all" on public.assignments
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
@@ -1368,7 +1374,9 @@ create policy "quizzes_enrolled_select" on public.quizzes
   for select to authenticated
   using (public.is_enrolled_in_cohort(cohort_id) or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
 create policy "quizzes_teacher_write" on public.quizzes
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "quizzes_admin_all" on public.quizzes
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
@@ -1390,7 +1398,9 @@ create policy "grades_select" on public.grades
   for select to authenticated
   using (user_id = auth.uid() or public.can_manage_cohort(cohort_id) or public.is_bioechem_admin());
 create policy "grades_teacher_write" on public.grades
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "grades_admin_all" on public.grades
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
@@ -1410,7 +1420,9 @@ create policy "announcements_enrolled_select" on public.announcements
     or public.is_bioechem_admin()
   );
 create policy "announcements_teacher_write" on public.announcements
-  for insert to authenticated with check (public.can_manage_cohort(cohort_id));
+  for all to authenticated
+  using (public.can_manage_cohort(cohort_id))
+  with check (public.can_manage_cohort(cohort_id));
 create policy "announcements_admin_all" on public.announcements
   for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 

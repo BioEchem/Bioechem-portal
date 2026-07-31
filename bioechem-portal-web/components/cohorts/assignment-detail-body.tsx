@@ -6,6 +6,7 @@ import { PortalCard } from "@/components/portal/portal-page";
 import { AssignmentSubmitForm } from "@/components/cohorts/assignment-submit-form";
 import { SubmissionsReviewList } from "@/components/cohorts/teacher/submissions-review-list";
 import { requireSession } from "@/lib/auth/session";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 type SubmissionRow = {
   id: string;
@@ -95,10 +96,14 @@ export async function AssignmentDetailBody({
     myGrade = data;
   }
 
-  // Teacher: fetch all submissions
+  // Teacher: fetch all submissions. Teachers have no RLS SELECT policy on
+  // other users' `profiles` rows, so the embedded profile in this join would
+  // silently come back null for them — use the service-role client to
+  // bypass that (canManage is already verified above).
   let submissions: SubmissionRow[] = [];
   if (canManage) {
-    const { data } = await supabase
+    const submissionsClient = createServiceRoleClient() ?? supabase;
+    const { data } = await submissionsClient
       .from("submissions")
       .select("id, user_id, submission_text, file_url, filename, link_url, submitted_at, profiles(full_name, email), grades(points_earned, feedback, graded_at)")
       .eq("assignment_id", assignmentId)

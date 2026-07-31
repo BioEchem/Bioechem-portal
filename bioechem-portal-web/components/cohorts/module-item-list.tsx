@@ -66,6 +66,7 @@ export function ModuleItemList({
 }) {
   const [items, setItems] = useState(initial);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Sync local state when the server re-fetches after router.refresh()
   useEffect(() => {
@@ -87,6 +88,7 @@ export function ModuleItemList({
   }
 
   async function togglePublish(item: ItemRow) {
+    setError(null);
     const res = await fetch(
       `/api/cohorts/${cohortId}/modules/${moduleId}/items/${item.id}`,
       {
@@ -97,7 +99,7 @@ export function ModuleItemList({
     );
     if (!res.ok) {
       const json = await res.json().catch(() => null) as { error?: string } | null;
-      alert(json?.error ?? "Failed to update.");
+      setError(json?.error ?? "Failed to update.");
       return;
     }
     setItems((prev) =>
@@ -115,6 +117,11 @@ export function ModuleItemList({
 
   return (
     <div className="space-y-2">
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </p>
+      )}
       {items.map((item) => {
         const sub = item.assignments ? submissionMap[item.assignments.id] : undefined;
         const isAssignment = item.type === "assignment";
