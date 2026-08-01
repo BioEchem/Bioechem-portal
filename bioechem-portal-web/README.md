@@ -1,6 +1,6 @@
 # BioEchem Portal (Web)
 
-Next.js app for the BioEchem partner-school portal.
+Next.js app for the BioEchem STEM Education programs.
 
 ## Local development
 
@@ -13,7 +13,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Copy `.env.local.example` to `.env.local` and add your Supabase keys — see [docs/ENV_SETUP.md](./docs/ENV_SETUP.md).
+Copy `.env.local.example` to `.env.local`.
 
 ## Dependencies and deploy
 
