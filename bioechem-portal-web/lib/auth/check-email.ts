@@ -9,11 +9,15 @@ export async function isEmailAlreadyRegistered(email: string): Promise<boolean> 
 
   const normalized = email.trim().toLowerCase();
 
-  const { data: profile } = await admin
+  const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("id")
     .ilike("email", normalized)
     .maybeSingle();
+
+  if (profileError) {
+    console.error("isEmailAlreadyRegistered profiles select:", profileError.message);
+  }
 
   if (profile) {
     return true;
