@@ -57,15 +57,17 @@ export async function ModuleDetailBody({
   const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
 
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
-  const isSchoolAdmin =
+  // School admins get same-school oversight visibility but never edit/publish/
+  // delete module content — that stays limited to teachers and bioechem_admin.
+  const isSchoolAdminViewer =
     profile.role === "school_admin" &&
     !!cohortRef?.school_id &&
     schoolAdminProfile.school_id === cohortRef.school_id;
-  const canManage = profile.role === "bioechem_admin" || isSchoolAdmin || isTeacher;
+  const canManage = profile.role === "bioechem_admin" || isTeacher;
   const isEnrolled = enrollment?.status === "approved";
 
-  if (!canManage && !isEnrolled) notFound();
-  if (!canManage && !mod.published) notFound();
+  if (!canManage && !isEnrolled && !isSchoolAdminViewer) notFound();
+  if (!canManage && !isSchoolAdminViewer && !mod.published) notFound();
 
   let baseQuery = supabase
     .from("module_items")
@@ -74,7 +76,7 @@ export async function ModuleDetailBody({
     .eq("cohort_id", cohortId)
     .order("position");
 
-  if (!canManage) baseQuery = baseQuery.eq("published", true);
+  if (!canManage && !isSchoolAdminViewer) baseQuery = baseQuery.eq("published", true);
 
   const { data: items } = await baseQuery.returns<ItemRow[]>();
 

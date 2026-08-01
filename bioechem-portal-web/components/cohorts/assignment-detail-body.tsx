@@ -58,20 +58,22 @@ export async function AssignmentDetailBody({
   const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
 
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
-  const isSchoolAdmin =
+  // School admins get same-school oversight visibility but never grade —
+  // grading stays limited to teachers and bioechem_admin.
+  const isSchoolAdminViewer =
     profile.role === "school_admin" &&
     !!cohortRef?.school_id &&
     schoolAdminProfile.school_id === cohortRef.school_id;
-  const canManage = profile.role === "bioechem_admin" || isSchoolAdmin || isTeacher;
+  const canManage = profile.role === "bioechem_admin" || isTeacher;
   const isParticipant = enrollment?.role === "participant" && enrollment?.status === "approved";
 
-  if (!canManage && !isParticipant) notFound();
+  if (!canManage && !isParticipant && !isSchoolAdminViewer) notFound();
 
   type ItemShape = { id: string; title: string; content: string | null; file_url: string | null; module_id: string; published: boolean };
   const rawItem = assignment.module_items as unknown;
   const item: ItemShape | null = Array.isArray(rawItem) ? (rawItem[0] ?? null) : (rawItem as ItemShape | null);
 
-  if (!canManage && !item?.published) notFound();
+  if (!canManage && !isSchoolAdminViewer && !item?.published) notFound();
 
   // Participant: fetch own submission
   let mySubmission: { id: string; submission_text: string | null; file_url: string | null; filename: string | null; link_url: string | null; submitted_at: string } | null = null;

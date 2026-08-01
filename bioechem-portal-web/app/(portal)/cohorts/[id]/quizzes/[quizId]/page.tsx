@@ -34,12 +34,12 @@ export default async function QuizPage({
 
   const { supabase, user, profile } = await requireSession({
     requireApproved: true,
-    profileSelect: "approval_status, role",
+    profileSelect: "approval_status, role, school_id",
   });
 
   const { data: quiz } = await supabase
     .from("quizzes")
-    .select("id, due_at, questions, max_points, instructions, cohort_id, module_items(id, title, module_id, published)")
+    .select("id, due_at, questions, max_points, instructions, cohort_id, cohorts(school_id), module_items(id, title, module_id, published)")
     .eq("id", quizId)
     .single();
 
@@ -52,17 +52,27 @@ export default async function QuizPage({
     .eq("user_id", user.id)
     .maybeSingle();
 
+  type CohortRef = { school_id: string | null };
+  const cohortRef = Array.isArray(quiz.cohorts) ? quiz.cohorts[0] : (quiz.cohorts as CohortRef | null);
+  const schoolAdminProfile = profile as typeof profile & { school_id: string | null };
+
   const isTeacher = enrollment?.role === "teacher" && enrollment?.status === "approved";
   const canManage = profile.role === "bioechem_admin" || isTeacher;
   const isParticipant = enrollment?.role === "participant" && enrollment?.status === "approved";
+  // School admins can view (same-school oversight visibility) but never grade —
+  // grading stays limited to teachers and bioechem_admin.
+  const isSchoolAdminViewer =
+    profile.role === "school_admin" &&
+    !!cohortRef?.school_id &&
+    schoolAdminProfile.school_id === cohortRef.school_id;
 
-  if (!canManage && !isParticipant) notFound();
+  if (!canManage && !isParticipant && !isSchoolAdminViewer) notFound();
 
   type ItemShape = { id: string; title: string; module_id: string; published: boolean };
   const rawItem = quiz.module_items as unknown;
   const item: ItemShape | null = Array.isArray(rawItem) ? (rawItem[0] ?? null) : (rawItem as ItemShape | null);
 
-  if (!canManage && !item?.published) notFound();
+  if (!canManage && !isSchoolAdminViewer && !item?.published) notFound();
 
   const questions = (quiz.questions as unknown as QuizQuestion[]) ?? [];
 
@@ -99,7 +109,7 @@ export default async function QuizPage({
   const isOverdue = quiz.due_at ? new Date(quiz.due_at) < new Date() : false;
 
   const tabs = buildCohortTabs({
-    canViewContent: canManage || isParticipant,
+    canViewContent: canManage || isParticipant || isSchoolAdminViewer,
     canManage,
     isApprovedEnrolled: isParticipant,
     isTeacher,
