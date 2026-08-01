@@ -54,7 +54,3 @@ When we add UI libraries (e.g. icons), they will appear in `package.json` the sa
 
 If Root Directory is wrong, Vercel may miss dependencies or build the wrong app.
 
-## Docs
-
-- [Auth and approval flow](./docs/AUTH_AND_APPROVAL.md)
-- Database migrations: `supabase/migrations/`
