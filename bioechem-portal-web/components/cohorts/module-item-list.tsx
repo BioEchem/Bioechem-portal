@@ -1,0 +1,287 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  FileText,
+  Link as LinkIcon,
+  File,
+  ClipboardList,
+  HelpCircle,
+  CheckCircle,
+  Clock,
+  Eye,
+  EyeOff,
+  Trash2,
+} from "lucide-react";
+import { formatShortDate as fmt } from "@/lib/format/date";
+
+type ItemRow = {
+  id: string;
+  type: string;
+  title: string;
+  content: string | null;
+  file_url: string | null;
+  external_url: string | null;
+  position: number;
+  published: boolean;
+  created_at: string;
+  assignments: { id: string; due_at: string | null; max_points: number; submission_type: string } | null;
+  quizzes: { id: string; due_at: string | null; max_points: number; questions: unknown[] } | null;
+};
+
+type SubmissionInfo = { submitted_at: string };
+
+const TYPE_ICON: Record<string, React.ElementType> = {
+  note: FileText,
+  file: File,
+  link: LinkIcon,
+  assignment: ClipboardList,
+  quiz: HelpCircle,
+};
+
+function ItemIcon({ type }: { type: string }) {
+  const Icon = TYPE_ICON[type] ?? FileText;
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bio-mint/40">
+      <Icon className="h-4 w-4 text-bio-green" />
+    </div>
+  );
+}
+
+export function ModuleItemList({
+  cohortId,
+  moduleId,
+  items: initial,
+  submissionMap,
+  quizSubmissionMap,
+  canManage,
+}: {
+  cohortId: string;
+  moduleId: string;
+  items: ItemRow[];
+  submissionMap: Record<string, SubmissionInfo>;
+  quizSubmissionMap: Record<string, SubmissionInfo>;
+  canManage: boolean;
+}) {
+  const [items, setItems] = useState(initial);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sync local state when the server re-fetches after router.refresh()
+  useEffect(() => {
+    setItems(initial);
+  }, [initial]);
+
+  async function deleteItem(itemId: string) {
+    if (!confirm("Delete this item?")) return;
+    setDeleting(itemId);
+    try {
+      const res = await fetch(
+        `/api/cohorts/${cohortId}/modules/${moduleId}/items/${itemId}`,
+        { method: "DELETE" },
+      );
+      if (res.ok) setItems((prev) => prev.filter((i) => i.id !== itemId));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  async function togglePublish(item: ItemRow) {
+    setError(null);
+    const res = await fetch(
+      `/api/cohorts/${cohortId}/modules/${moduleId}/items/${item.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: !item.published }),
+      },
+    );
+    if (!res.ok) {
+      const json = await res.json().catch(() => null) as { error?: string } | null;
+      setError(json?.error ?? "Failed to update.");
+      return;
+    }
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, published: !i.published } : i)),
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-bio-text-muted">
+        {canManage ? "No items yet. Add one below." : "No content available yet."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+      {items.map((item) => {
+        const sub = item.assignments ? submissionMap[item.assignments.id] : undefined;
+        const isAssignment = item.type === "assignment";
+        const quizSub = item.quizzes ? quizSubmissionMap[item.quizzes.id] : undefined;
+        const isQuiz = item.type === "quiz";
+
+        const inner = (
+          <div className="flex items-start gap-3 rounded-xl border border-card-border bg-card p-4 shadow-[var(--shadow-card)]">
+            <ItemIcon type={item.type} />
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-bio-text truncate">{item.title}</p>
+                {canManage && !item.published ? (
+                  <span className="flex items-center gap-0.5 text-xs text-bio-text-muted">
+                    <EyeOff className="h-3 w-3" /> Draft
+                  </span>
+                ) : null}
+              </div>
+
+              {item.type === "note" && item.content ? (
+                <p className="mt-0.5 whitespace-pre-wrap text-sm text-bio-text-muted">{item.content}</p>
+              ) : null}
+
+              {item.type === "note" && item.file_url ? (
+                <a
+                  href={item.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-bio-green hover:underline"
+                >
+                  <File className="h-3 w-3" /> Attached file
+                </a>
+              ) : null}
+
+              {isAssignment && item.assignments ? (
+                <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-bio-text-muted">
+                  <span>{item.assignments.max_points} pts</span>
+                  {item.assignments.due_at ? (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Due {fmt(item.assignments.due_at)}
+                    </span>
+                  ) : null}
+                  {sub ? (
+                    <span className="flex items-center gap-1 text-bio-green">
+                      <CheckCircle className="h-3 w-3" />
+                      Submitted {fmt(sub.submitted_at)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {isQuiz && item.quizzes ? (
+                <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-bio-text-muted">
+                  <span>{item.quizzes.questions.length} question{item.quizzes.questions.length === 1 ? "" : "s"}</span>
+                  <span>{item.quizzes.max_points} pts</span>
+                  {item.quizzes.due_at ? (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Due {fmt(item.quizzes.due_at)}
+                    </span>
+                  ) : null}
+                  {quizSub ? (
+                    <span className="flex items-center gap-1 text-bio-green">
+                      <CheckCircle className="h-3 w-3" />
+                      Submitted {fmt(quizSub.submitted_at)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {item.external_url && item.type === "link" ? (
+                <p className="mt-0.5 truncate text-xs text-bio-green">{item.external_url}</p>
+              ) : null}
+            </div>
+
+            {canManage ? (
+              <div className="flex items-center gap-1" onClick={(e) => e.preventDefault()}>
+                <button
+                  type="button"
+                  onClick={() => void togglePublish(item)}
+                  className={`rounded-md p-1.5 transition-colors ${
+                    item.published
+                      ? "text-bio-green hover:text-bio-green/70"
+                      : "text-bio-text-muted hover:text-bio-green"
+                  }`}
+                  title={item.published ? "Published — click to unpublish" : "Draft — click to publish"}
+                >
+                  {item.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteItem(item.id)}
+                  disabled={deleting === item.id}
+                  className="rounded-md p-1.5 text-bio-text-muted hover:text-red-500 disabled:opacity-40"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+
+        if (isAssignment && item.assignments) {
+          return (
+            <Link
+              key={item.id}
+              href={`/cohorts/${cohortId}?tab=assignments&assignmentId=${item.assignments.id}`}
+              className="block hover:opacity-90"
+            >
+              {inner}
+            </Link>
+          );
+        }
+
+        if (isQuiz && item.quizzes) {
+          return (
+            <Link
+              key={item.id}
+              href={`/cohorts/${cohortId}/quizzes/${item.quizzes.id}`}
+              className="block hover:opacity-90"
+            >
+              {inner}
+            </Link>
+          );
+        }
+
+        if (item.type === "link" && item.external_url) {
+          return (
+            <a
+              key={item.id}
+              href={item.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block hover:opacity-90"
+            >
+              {inner}
+            </a>
+          );
+        }
+
+        if (item.type === "file" && item.file_url) {
+          return (
+            <a
+              key={item.id}
+              href={item.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block hover:opacity-90"
+            >
+              {inner}
+            </a>
+          );
+        }
+
+        return <div key={item.id}>{inner}</div>;
+      })}
+    </div>
+  );
+}

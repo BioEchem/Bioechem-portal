@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/*
+ * Brand tokens aligned with https://www.bioechem.com/ (Wix theme).
+ * Greens: #3F7652, #4b916d, #1b5b3f · Mint bg: #E7F4F6 · Text: #080808
+ */
+:root {
+  --font-bio-sans: Helvetica, Arial, sans-serif;
+  --bio-green: #3f7652;
+  --bio-green-dark: #1b5b3f;
+  --bio-green-deep: #004524;
+  --bio-green-light: #4b916d;
+  --bio-green-muted: #97c693;
+  --bio-mint: #e7f4f6;
+  --bio-white: #ffffff;
+  --bio-gray: #e5e7eb;
+  --bio-text: #080808;
+  --bio-text-muted: #5f6360;
+  --bio-footer: #f4f8f6;
+
+  --background: var(--bio-white);
+  --foreground: var(--bio-text);
+  --card: #ffffff;
+  --card-border: var(--bio-gray);
+  --muted: var(--bio-mint);
+  --accent: var(--bio-green-light);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-bio-green: var(--bio-green);
+  --color-bio-green-dark: var(--bio-green-dark);
+  --color-bio-green-deep: var(--bio-green-deep);
+  --color-bio-green-light: var(--bio-green-light);
+  --color-bio-green-muted: var(--bio-green-muted);
+  --color-bio-mint: var(--bio-mint);
+  --color-bio-white: var(--bio-white);
+  --color-bio-gray: var(--bio-gray);
+  --color-bio-text: var(--bio-text);
+  --color-bio-text-muted: var(--bio-text-muted);
+  --color-bio-footer: var(--bio-footer);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-bio-sans);
+  --shadow-card: 0 1px 3px rgb(0 75 36 / 8%), 0 4px 16px rgb(0 75 36 / 10%);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-bio-sans), Helvetica, Arial, sans-serif;
+}
+
+/* Light field texture — matches clean-tech hero feel on main site */
+.bio-pattern {
+  background-color: var(--bio-mint);
+  background-image: linear-gradient(
+    180deg,
+    rgb(231 244 246 / 100%) 0%,
+    rgb(255 255 255 / 100%) 55%
+  );
+}
+
+.bio-gradient-header {
+  background: linear-gradient(
+    135deg,
+    var(--bio-green-deep) 0%,
+    var(--bio-green) 50%,
+    var(--bio-green-light) 100%
+  );
+}
+
+.bio-gradient-soft {
+  background: linear-gradient(
+    180deg,
+    var(--bio-mint) 0%,
+    rgb(255 255 255 / 0%) 100%
+  );
+}
+
+.bio-btn-primary {
+  @apply inline-flex h-11 items-center justify-center rounded-lg bg-bio-green px-6 text-sm font-medium text-white transition-colors hover:bg-bio-green-dark;
+}
+
+.bio-btn-secondary {
+  @apply inline-flex h-11 items-center justify-center rounded-lg border border-card-border bg-bio-white px-6 text-sm font-medium text-bio-green transition-colors hover:bg-bio-mint;
+}

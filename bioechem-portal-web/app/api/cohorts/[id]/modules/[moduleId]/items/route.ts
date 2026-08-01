@@ -1,0 +1,227 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import {
+  emailUsersNewAssignment,
+  emailUsersNewModuleItem,
+  emailUsersNewQuiz,
+} from "@/lib/notify/user-email";
+import { createNotifications } from "@/lib/notifications/create";
+
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  note: "note",
+  file: "file",
+  link: "link",
+};
+
+type Params = { params: Promise<{ id: string; moduleId: string }> };
+
+export async function GET(_req: Request, { params }: Params) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: cohortId, moduleId } = await params;
+
+  const { data: enrollment } = await supabase
+    .from("cohort_enrollments")
+    .select("role, status")
+    .eq("cohort_id", cohortId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const canManage =
+    profile?.role === "bioechem_admin" ||
+    (enrollment?.role === "teacher" && enrollment?.status === "approved");
+  const isEnrolled = enrollment?.status === "approved";
+
+  if (!canManage && !isEnrolled) return NextResponse.json({ error: "Not enrolled." }, { status: 403 });
+
+  let query = supabase
+    .from("module_items")
+    .select(`id, type, title, content, file_url, external_url, position, published, created_at,
+      assignments(id, due_at, max_points, submission_type),
+      quizzes(id, due_at, max_points, questions)`)
+    .eq("module_id", moduleId)
+    .eq("cohort_id", cohortId)
+    .order("position");
+
+  if (!canManage) query = query.eq("published", true);
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ data });
+}
+
+export async function POST(req: Request, { params }: Params) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: cohortId, moduleId } = await params;
+
+  const { data: profile } = await supabase.from("profiles").select("role, approval_status").eq("id", user.id).single();
+  if (!profile || profile.approval_status !== "approved") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  let canManage = profile.role === "bioechem_admin";
+  if (!canManage) {
+    const { data: e } = await supabase.from("cohort_enrollments")
+      .select("role, status").eq("cohort_id", cohortId).eq("user_id", user.id).maybeSingle();
+    canManage = e?.role === "teacher" && e?.status === "approved";
+  }
+  if (!canManage) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await req.json() as Record<string, unknown>;
+  const type = typeof body.type === "string" ? body.type : "";
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!["note", "assignment", "file", "link", "quiz"].includes(type) || !title) {
+    return NextResponse.json({ error: "Valid type and title are required." }, { status: 400 });
+  }
+
+  const { data: mod } = await supabase
+    .from("modules").select("published").eq("id", moduleId).eq("cohort_id", cohortId).maybeSingle();
+  if (!mod) return NextResponse.json({ error: "Module not found." }, { status: 404 });
+
+  // Items can only go live once their parent module is published — otherwise
+  // they'd notify participants about content sitting inside a draft module
+  // they can't actually view yet.
+  const published = mod.published ? body.published !== false : false;
+
+  const { data: last } = await supabase
+    .from("module_items").select("position").eq("module_id", moduleId)
+    .order("position", { ascending: false }).limit(1).maybeSingle();
+
+  const { data: item, error: itemErr } = await supabase
+    .from("module_items")
+    .insert({
+      module_id: moduleId,
+      cohort_id: cohortId,
+      type,
+      title,
+      content: typeof body.content === "string" ? body.content.trim() || null : null,
+      file_url: typeof body.file_url === "string" ? body.file_url.trim() || null : null,
+      external_url: typeof body.external_url === "string" ? body.external_url.trim() || null : null,
+      position: (last?.position ?? -1) + 1,
+      published,
+      created_by: user.id,
+    })
+    .select()
+    .single();
+
+  if (itemErr) return NextResponse.json({ error: itemErr.message }, { status: 400 });
+
+  let assignmentDueAt: string | null = null;
+  let quizDueAt: string | null = null;
+
+  // For assignments: also create the assignments row
+  if (type === "assignment") {
+    const dueAt = typeof body.due_at === "string" ? body.due_at || null : null;
+    assignmentDueAt = dueAt;
+    const maxPoints = typeof body.max_points === "number" ? body.max_points : 100;
+    const requiresGrading = body.requires_grading !== false;
+    const gradeCategory = typeof body.grade_category === "string" && ["intermediate","final"].includes(body.grade_category)
+      ? body.grade_category : "intermediate";
+    const assignmentType = typeof body.assignment_type === "string" && ["assignment","presentation","field_trip","quiz","other"].includes(body.assignment_type)
+      ? body.assignment_type : "assignment";
+    const submissionType = typeof body.submission_type === "string" ? body.submission_type : "any";
+
+    const { error: aErr } = await supabase.from("assignments").insert({
+      module_item_id: item.id,
+      cohort_id: cohortId,
+      due_at: dueAt,
+      max_points: requiresGrading ? maxPoints : null,
+      requires_grading: requiresGrading,
+      grade_category: gradeCategory,
+      assignment_type: assignmentType,
+      submission_type: submissionType,
+      instructions: typeof body.instructions === "string" ? body.instructions.trim() || null : null,
+    });
+
+    if (aErr) {
+      // Roll back the module item so no orphan is left
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: aErr.message }, { status: 400 });
+    }
+  }
+
+  // For quizzes: also create the quizzes row
+  if (type === "quiz") {
+    const dueAt = typeof body.due_at === "string" ? body.due_at || null : null;
+    quizDueAt = dueAt;
+    const questions = Array.isArray(body.questions) ? body.questions : [];
+    const maxPoints = questions.reduce((sum: number, q: unknown) => {
+      const points = q && typeof q === "object" && "points" in q ? Number((q as { points: unknown }).points) : 0;
+      return sum + (Number.isFinite(points) ? points : 0);
+    }, 0);
+
+    if (questions.length === 0) {
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: "Add at least one question." }, { status: 400 });
+    }
+
+    const { error: qErr } = await supabase.from("quizzes").insert({
+      module_item_id: item.id,
+      cohort_id: cohortId,
+      due_at: dueAt,
+      questions,
+      max_points: maxPoints,
+      instructions: typeof body.instructions === "string" ? body.instructions.trim() || null : null,
+      created_by: user.id,
+    });
+
+    if (qErr) {
+      await supabase.from("module_items").delete().eq("id", item.id);
+      return NextResponse.json({ error: qErr.message }, { status: 400 });
+    }
+  }
+
+  // Notify enrolled participants — in-app + email — for any published item, any type.
+  if (item.published) {
+    Promise.all([
+      supabase.from("cohorts").select("title").eq("id", cohortId).single(),
+      supabase
+        .from("cohort_enrollments")
+        .select("user_id, profiles(email, full_name)")
+        .eq("cohort_id", cohortId)
+        .eq("role", "participant")
+        .eq("status", "approved"),
+    ]).then(([cohortRes, enrollRes]) => {
+      const cohortName = cohortRes.data?.title ?? "your cohort";
+      const participants = enrollRes.data ?? [];
+
+      const recipients = participants.flatMap((e) => {
+        const p = e.profiles as unknown as { email: string | null; full_name: string | null } | null;
+        return p?.email ? [{ email: p.email, name: p.full_name ?? p.email }] : [];
+      });
+
+      const link = `/cohorts/${cohortId}?tab=modules`;
+      const notifTitle = type === "assignment" ? `New assignment: ${title}`
+        : type === "quiz" ? `New quiz: ${title}`
+        : `New ${ITEM_TYPE_LABELS[type] ?? type}: ${title}`;
+
+      if (participants.length > 0) {
+        void createNotifications(
+          participants.map((e) => ({
+            userId: e.user_id as string,
+            type: "general" as const,
+            title: notifTitle,
+            body: `Posted in ${cohortName}`,
+            link,
+          })),
+        );
+      }
+
+      if (recipients.length > 0) {
+        if (type === "assignment") {
+          emailUsersNewAssignment(recipients, cohortName, title, assignmentDueAt, cohortId);
+        } else if (type === "quiz") {
+          emailUsersNewQuiz(recipients, cohortName, title, quizDueAt, cohortId);
+        } else {
+          emailUsersNewModuleItem(recipients, cohortName, ITEM_TYPE_LABELS[type] ?? type, title, cohortId);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  return NextResponse.json({ data: item }, { status: 201 });
+}

@@ -1,0 +1,16 @@
+export const GRADE_OPTIONS = [
+  { value: "", label: "Select grade level" },
+  { value: "6th", label: "6th Grade" },
+  { value: "7th", label: "7th Grade" },
+  { value: "8th", label: "8th Grade" },
+  { value: "9th", label: "9th Grade (Freshman)" },
+  { value: "10th", label: "10th Grade (Sophomore)" },
+  { value: "11th", label: "11th Grade (Junior)" },
+  { value: "12th", label: "12th Grade (Senior)" },
+  { value: "college-1", label: "1st Year College" },
+  { value: "college-2", label: "2nd Year College" },
+  { value: "college-3", label: "3rd Year College" },
+  { value: "college-4", label: "4th Year College" },
+  { value: "graduate", label: "Graduate Student" },
+  { value: "other", label: "Other" },
+] as const;
