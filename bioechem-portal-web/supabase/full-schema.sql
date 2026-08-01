@@ -128,6 +128,19 @@ drop type if exists public.approval_status cascade;
 drop type if exists public.user_role       cascade;
 
 -- ---------------------------------------------------------------------------
+-- BASELINE GRANTS — table-level privileges for anon/authenticated.
+-- New Supabase projects don't always inherit these automatically; without
+-- them every query fails with "permission denied for table X" before RLS is
+-- ever evaluated. RLS policies remain the real row-level access control —
+-- this just opens the door at the table level.
+-- ---------------------------------------------------------------------------
+
+grant usage on schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- ENUMS
 -- ---------------------------------------------------------------------------
 
@@ -1776,6 +1789,18 @@ create policy "partnerdocs_storage_select" on storage.objects for select
   using (bucket_id = 'partner-docs' and (select role::text from public.profiles where id = auth.uid()) in ('industry_partner', 'bioechem_admin'));
 create policy "partnerdocs_storage_delete" on storage.objects for delete
   using (bucket_id = 'partner-docs' and public.is_bioechem_admin());
+
+-- ---------------------------------------------------------------------------
+-- BASELINE GRANTS (pass 2) — cover every table/sequence/function that now
+-- exists after the script above. The `alter default privileges` calls near
+-- the top only apply to objects created *after* that statement ran, so this
+-- explicit pass ensures everything created earlier in this same script is
+-- covered too. Safe to re-run any time.
+-- ---------------------------------------------------------------------------
+
+grant all on all tables in schema public to anon, authenticated;
+grant all on all sequences in schema public to anon, authenticated;
+grant all on all functions in schema public to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- DEV SEED — remove or adjust for production
