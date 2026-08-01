@@ -67,6 +67,7 @@ const ADMIN_MANAGE_SECTION: PortalNavSection = {
     { label: "Cohorts", href: AUTH_ROUTES.adminCohorts, icon: GraduationCap },
     { label: "Surveys", href: AUTH_ROUTES.adminSurveys, icon: ClipboardCheck },
     { label: "Analytics", href: AUTH_ROUTES.adminAnalytics, icon: BarChart3 },
+    { label: "Credits", href: AUTH_ROUTES.adminCredits, icon: Gift },
     // { label: "Job Postings", href: AUTH_ROUTES.adminJobs, icon: BriefcaseBusiness }, // TODO: re-enable when job postings feature is ready
   ],
 };

@@ -25,4 +25,5 @@ export const AUTH_ROUTES = {
   adminPartnerEvents: "/admin/partner-events",
   adminAnalytics: "/admin/analytics",
   adminPoints: "/admin/points",
+  adminCredits: "/admin/credits",
 } as const;

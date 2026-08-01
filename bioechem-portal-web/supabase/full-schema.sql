@@ -33,6 +33,7 @@ drop table if exists public.job_applications       cascade;
 drop table if exists public.job_postings           cascade;
 drop table if exists public.career_updates         cascade;
 drop table if exists public.cohort_feedback        cascade;
+drop table if exists public.user_credit_notes      cascade;
 
 -- LMS tables
 drop table if exists public.cohort_contacts        cascade;
@@ -490,8 +491,9 @@ create table public.career_updates (
   commented_by  uuid references public.profiles(id) on delete set null,
   commented_at  timestamptz,
   created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now(),
-  unique (cohort_id, user_id)
+  updated_at   timestamptz not null default now()
+  -- Note: no unique(cohort_id, user_id) — a participant can add multiple
+  -- career path entries over time, each commentable independently.
 );
 
 create index career_updates_cohort_id_idx on public.career_updates(cohort_id);
@@ -514,6 +516,23 @@ create table public.cohort_feedback (
 
 create index cohort_feedback_cohort_id_idx on public.cohort_feedback(cohort_id);
 create index cohort_feedback_user_id_idx   on public.cohort_feedback(user_id);
+
+-- ---------------------------------------------------------------------------
+-- USER CREDIT NOTES (manually-tracked credits — a free-text note per user,
+-- no automated calculation; bioechem_admin sets it, the user just reads it.
+-- Append-only: each edit inserts a new row instead of overwriting, so the
+-- history is kept; the UI shows whichever row is most recent per user.)
+-- ---------------------------------------------------------------------------
+
+create table public.user_credit_notes (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references public.profiles(id) on delete cascade,
+  note       text,
+  created_at timestamptz not null default now(),
+  created_by uuid        references public.profiles(id) on delete set null
+);
+
+create index user_credit_notes_user_id_idx on public.user_credit_notes(user_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- LMS: MODULES
@@ -1196,6 +1215,7 @@ alter table public.shareholder_announcements  enable row level security;
 alter table public.credits_page_content       enable row level security;
 alter table public.career_updates             enable row level security;
 alter table public.cohort_feedback            enable row level security;
+alter table public.user_credit_notes          enable row level security;
 alter table public.point_transactions         enable row level security;
 alter table public.notifications              enable row level security;
 
@@ -1616,6 +1636,12 @@ create policy "cohort_feedback_own_write" on public.cohort_feedback
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "cohort_feedback_manager_read" on public.cohort_feedback
   for select to authenticated using (public.can_manage_cohort(cohort_id));
+
+-- ── User credit notes ─────────────────────────────────────────────────────────
+create policy "user_credit_notes_own_read" on public.user_credit_notes
+  for select to authenticated using (user_id = auth.uid());
+create policy "user_credit_notes_admin_all" on public.user_credit_notes
+  for all to authenticated using (public.is_bioechem_admin()) with check (public.is_bioechem_admin());
 
 -- ── Reward points ──────────────────────────────────────────────────────────
 create policy "users_read_own_points" on public.point_transactions

@@ -10,21 +10,31 @@ import {
   DEFAULT_CREDITS_INTRO,
   type CreditActionItem,
 } from "@/lib/credits/default-content";
+import { formatShortDate as fmt } from "@/lib/format/date";
 
 export const metadata: Metadata = { title: "Credits" };
 
 type ActionItem = CreditActionItem;
 
 export default async function CreditsInfoPage() {
-  const { supabase, profile } = await requireSession({ requireApproved: true });
+  const { supabase, user, profile } = await requireSession({ requireApproved: true });
   const isAdmin = profile.role === "bioechem_admin";
 
-  const { data } = await supabase
-    .from("credits_page_content")
-    .select("intro_text, claim_text, actions")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<{ intro_text: string; claim_text: string; actions: ActionItem[] }>();
+  const [{ data }, { data: creditNote }] = await Promise.all([
+    supabase
+      .from("credits_page_content")
+      .select("intro_text, claim_text, actions")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ intro_text: string; claim_text: string; actions: ActionItem[] }>(),
+    supabase
+      .from("user_credit_notes")
+      .select("note, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ note: string | null; created_at: string }>(),
+  ]);
 
   const introText = data?.intro_text || DEFAULT_CREDITS_INTRO;
   const claimText = data?.claim_text || DEFAULT_CREDITS_CLAIM;
@@ -37,13 +47,35 @@ export default async function CreditsInfoPage() {
     >
       <div className="space-y-4">
         {isAdmin && (
-          <Link
-            href="/admin/content/credits"
-            className="flex items-center gap-1.5 text-sm font-medium text-bio-green hover:underline"
-          >
-            <Settings className="h-4 w-4" /> Edit this page
-          </Link>
+          <div className="flex flex-wrap gap-4">
+            <Link
+              href="/admin/content/credits"
+              className="flex items-center gap-1.5 text-sm font-medium text-bio-green hover:underline"
+            >
+              <Settings className="h-4 w-4" /> Edit this page
+            </Link>
+            <Link
+              href="/admin/credits"
+              className="flex items-center gap-1.5 text-sm font-medium text-bio-green hover:underline"
+            >
+              <Settings className="h-4 w-4" /> Manage user credits
+            </Link>
+          </div>
         )}
+
+        <PortalCard>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">Your credits</h2>
+          {creditNote?.note ? (
+            <>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-bio-text">{creditNote.note}</p>
+              <p className="mt-2 text-xs text-bio-text-muted">Last updated {fmt(creditNote.created_at)}</p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-bio-text-muted">
+              No credits have been recorded for you yet.
+            </p>
+          )}
+        </PortalCard>
 
         <PortalCard>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-bio-green">How it works</h2>
