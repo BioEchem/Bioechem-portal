@@ -128,17 +128,24 @@ drop type if exists public.approval_status cascade;
 drop type if exists public.user_role       cascade;
 
 -- ---------------------------------------------------------------------------
--- BASELINE GRANTS — table-level privileges for anon/authenticated.
+-- BASELINE GRANTS — table-level privileges for anon/authenticated/service_role.
 -- New Supabase projects don't always inherit these automatically; without
 -- them every query fails with "permission denied for table X" before RLS is
--- ever evaluated. RLS policies remain the real row-level access control —
--- this just opens the door at the table level.
+-- ever evaluated (this hits service_role too — it bypasses RLS, not table
+-- grants). RLS policies remain the real row-level access control — this
+-- just opens the door at the table level.
 -- ---------------------------------------------------------------------------
 
-grant usage on schema public to anon, authenticated;
-alter default privileges in schema public grant all on tables to anon, authenticated;
-alter default privileges in schema public grant all on sequences to anon, authenticated;
-alter default privileges in schema public grant all on functions to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+
+-- Same gap can hit the storage schema (avatars/resumes/course-files uploads
+-- all live in storage.objects/storage.buckets) — cover it too, preemptively.
+grant usage on schema storage to anon, authenticated, service_role;
+grant all on all tables in schema storage to anon, authenticated, service_role;
+alter default privileges in schema storage grant all on tables to anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- ENUMS
@@ -1798,26 +1805,13 @@ create policy "partnerdocs_storage_delete" on storage.objects for delete
 -- covered too. Safe to re-run any time.
 -- ---------------------------------------------------------------------------
 
-grant all on all tables in schema public to anon, authenticated;
-grant all on all sequences in schema public to anon, authenticated;
-grant all on all functions in schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all functions in schema public to anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- DEV SEED — remove or adjust for production
 -- ---------------------------------------------------------------------------
-
-insert into public.schools (name, slug, is_partner, is_active)
-values ('Demo Partner High School', 'demo-partner-high', true, true)
-on conflict (slug) do nothing;
-
-insert into public.cohorts (school_id, name, status, is_active, enrollment_requires_approval)
-select s.id, 'Fall 2026 Bio Battery Cohort', 'active', true, false
-from public.schools s
-where s.slug = 'demo-partner-high'
-  and not exists (
-    select 1 from public.cohorts c
-    where c.school_id = s.id and c.name = 'Fall 2026 Bio Battery Cohort'
-  );
 
 insert into public.credits_page_content (intro_text, claim_text, actions)
 select

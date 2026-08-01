@@ -147,6 +147,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   });
 
   if (error) {
+    console.error("signUpWithEmail: supabase.auth.signUp error:", error.status, error.code, error.message);
     if (isDuplicateEmailError(error.message)) {
       return signUpFailure(EMAIL_EXISTS_MESSAGE, "email_exists");
     }
@@ -159,6 +160,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   }
 
   if (!data.user) {
+    console.error("signUpWithEmail: signUp returned no error and no user. data:", JSON.stringify(data));
     return signUpFailure("Could not create account. Please try again.");
   }
 
