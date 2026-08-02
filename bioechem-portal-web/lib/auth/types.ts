@@ -40,10 +40,9 @@ export type SignupRequestBody = {
   partnerType?: PartnerType | null;
 };
 
-export type SignupSuccessResponse = {
-  ok: true;
-  redirectTo: string;
-};
+export type SignupSuccessResponse =
+  | { ok: true; redirectTo: string }
+  | { ok: true; needsEmailConfirmation: true };
 
 import type { CohortOption, SchoolOption } from "@/lib/schools/types";
 

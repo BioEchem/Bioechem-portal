@@ -40,6 +40,7 @@ export function SignupForm() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emailExists, setEmailExists] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [pending, setPending] = useState(false);
   const [loadingSchools, setLoadingSchools] = useState(true);
   const [partnerType, setPartnerType] = useState("");
@@ -221,6 +222,12 @@ export function SignupForm() {
         return;
       }
 
+      if (!("redirectTo" in data)) {
+        setNeedsConfirmation(true);
+        setError(null);
+        return;
+      }
+
       router.push(data.redirectTo);
       router.refresh();
     } catch {
@@ -233,6 +240,19 @@ export function SignupForm() {
   if (loadingSchools) {
     return (
       <p className="text-center text-sm text-bio-text-muted">Loading form…</p>
+    );
+  }
+
+  if (needsConfirmation) {
+    return (
+      <div className="space-y-3 text-center">
+        <p className="text-sm font-medium text-bio-text">Check your email</p>
+        <p className="text-sm text-bio-text-muted">
+          We&apos;ve sent a confirmation link to the email address you signed up with. Click it to
+          confirm your account, then sign in. If you already have an account with this email,
+          you&apos;ll get an email about that instead — try logging in or resetting your password.
+        </p>
+      </div>
     );
   }
 
