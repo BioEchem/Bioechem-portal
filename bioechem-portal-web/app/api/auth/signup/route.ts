@@ -25,6 +25,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (result.needsEmailConfirmation) {
+    // No session was established (email confirmation required) and we can't
+    // tell whether this was a brand-new signup or an already-registered
+    // email — don't notify admins or redirect into a session-gated page,
+    // just tell the user to check their inbox.
+    return authOk({ ok: true as const, needsEmailConfirmation: true as const });
+  }
+
   const fullName = `${input.firstName} ${input.lastName}`;
   const roleLabel = getRoleLabel(input.role);
 

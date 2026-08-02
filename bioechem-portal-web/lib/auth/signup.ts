@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export type SignUpResult =
-  | { ok: true }
+  | { ok: true; needsEmailConfirmation?: boolean }
   | { ok: false; message: string; code?: "email_exists" };
 
 export type SignUpInput = {
@@ -160,8 +160,14 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   }
 
   if (!data.user) {
-    console.error("signUpWithEmail: signUp returned no error and no user. data:", JSON.stringify(data));
-    return signUpFailure("Could not create account. Please try again.");
+    // With "Confirm email" enabled, Supabase deliberately returns
+    // { user: null, session: null } with no error for every signup attempt —
+    // both a genuinely new email and an already-registered one look
+    // identical here (anti-enumeration: the response alone can't reveal
+    // which case it is). Either way a confirmation-related email was just
+    // sent, so treat this as a successful signup that needs email
+    // confirmation, not a failure.
+    return { ok: true, needsEmailConfirmation: true };
   }
 
   // The DB trigger that creates the profiles row doesn't know about
