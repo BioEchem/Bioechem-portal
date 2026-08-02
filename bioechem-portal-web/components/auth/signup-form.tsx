@@ -249,8 +249,7 @@ export function SignupForm() {
         <p className="text-sm font-medium text-bio-text">Check your email</p>
         <p className="text-sm text-bio-text-muted">
           We&apos;ve sent a confirmation link to the email address you signed up with. Click it to
-          confirm your account, then sign in. If you already have an account with this email,
-          you&apos;ll get an email about that instead — try logging in or resetting your password.
+          confirm your account, then sign in.
         </p>
       </div>
     );
